@@ -1,109 +1,137 @@
 """
-Simulated Annealing for Multi-Robot Coverage Path Planning
-==========================================================
+Simulated Annealing Algorithm for Multi-Robot Coverage Path Planning
+==================================================================
 
-This implements SA algorithm with the exact formula from the problem specification:
+WHAT IS SIMULATED ANNEALING?
+- It's like finding the best way to arrange robots to cover an area
+- Starts with a random solution (like throwing robots randomly)
+- Tries small changes (like swapping cells between robots)
+- Sometimes accepts worse solutions to avoid getting stuck
+- Gradually becomes more picky about accepting worse solutions
 
-Objective Function: J = w1(1 - coverage) + w2(imbalance) + λ(penalty)
+THE FORMULA WE USE:
+J = w1(1 - coverage) + w2(imbalance) + penalty
 
-Where:
-- coverage = (# covered cells ÷ total free cells) → maximize (convert to minimize)
-- imbalance = variance of robot workloads → minimize  
-- penalty = constraint violations (out_of_bounds=1000, obstacle=500, jump=100)
-- w1 = 0.7, w2 = 0.3 (dynamic: if coverage=1.0, then w1=0.5, w2=0.5)
+WHAT EACH PART MEANS:
+- coverage: How many cells are covered (higher = better)
+- imbalance: How different robot workloads are (lower = better)
+- penalty: How many rules we broke (lower = better)
+- w1, w2: How much we care about coverage vs balance
 
-Features:
-- Neighbor Generation: Swapping cell assignments only
-- Constraint Handling: Penalty functions with λ values 100-10000 range
-- SA Parameters: Temperature=1000, cooling_rate=0.95, iterations=2000
-- Dynamic Weight Adjustment: Increases w2 when coverage reaches 100%
+SA PARAMETERS:
+- Temperature: Starts high (accepts bad solutions), gets lower (more picky)
+- Cooling Rate: How fast temperature drops
+- Iterations: How many times we try to improve
 """
 
 import math
 import random
 import copy
-from simple_robot_coverage import *
+from problem_formulation import *
 
 class RobotCoverageSolution:
-    """Represents a solution for the multi-robot coverage problem"""
+    """
+    WHAT IS THIS CLASS?
+    - It's like a container that holds one possible solution
+    - A solution = which robot covers which cell + what path each robot takes
+    - Think of it like a blueprint for robot assignments
+    """
     
     def __init__(self, assignment, paths, all_cells, free_cells, obstacles, grid_width, grid_height):
-        self.assignment = copy.deepcopy(assignment)
-        self.paths = copy.deepcopy(paths)
-        self.all_cells = all_cells
-        self.free_cells = free_cells
-        self.obstacles = obstacles
-        self.grid_width = grid_width
-        self.grid_height = grid_height
-        self.fitness = None
-        self.combined_score = None
+        # Store all the data about this solution
+        self.assignment = copy.deepcopy(assignment)  # Which robot covers which cell
+        self.paths = copy.deepcopy(paths)           # What path each robot follows
+        self.all_cells = all_cells                  # All cells in the grid
+        self.free_cells = free_cells                # Cells robots can visit
+        self.obstacles = obstacles                  # Cells robots cannot visit
+        self.grid_width = grid_width               # Grid size
+        self.grid_height = grid_height             # Grid size
+        self.fitness = None                        # How good this solution is
+        self.combined_score = None                 # Final score (lower = better)
         
     def evaluate(self):
-        """Evaluate this solution and calculate combined fitness score"""
-        # Use existing evaluation function
-        results = evaluate_robot_solution(
+        """
+        WHAT DOES THIS DO?
+        - Calculates how good this solution is
+        - Uses the formula: J = w1(1 - coverage) + w2(imbalance) + penalty
+        - Lower score = better solution
+        """
+        # Get basic scores (coverage, balance, problems)
+        results = evaluate_solution(
             self.all_cells, self.free_cells, self.obstacles, 
             self.assignment, self.paths, self.grid_width, self.grid_height
         )
         self.fitness = results
         
-        # Calculate combined score using the formula from the image:
-        # J = w1(1 - coverage) + w2(imbalance) + λ(penalty)
-        
-        # Coverage: (# covered cells ÷ total free cells) → convert to minimization
+        # Calculate coverage ratio (0 to 1, where 1 = 100% coverage)
         coverage_ratio = results['coverage_score'] / len(self.free_cells)
-        coverage_term = 1 - coverage_ratio  # Lower is better (0 = 100% coverage)
+        coverage_term = 1 - coverage_ratio  # Convert to minimization (0 = perfect)
         
-        # Imbalance: variance of robot workloads (already minimization)
+        # Get imbalance (variance of robot workloads)
         imbalance_term = results['balance_score']
         
-        # Penalty: constraint violations
+        # Calculate penalty for breaking rules
         penalty_term = self.calculate_penalty()
         
-        # Weights as suggested in image
-        w1 = 0.7  # Coverage weight
-        w2 = 0.3  # Imbalance weight
+        # Set weights (how much we care about each thing)
+        w1 = 0.7  # We care 70% about coverage
+        w2 = 0.3  # We care 30% about balance
         
-        # Dynamic weight adjustment: If coverage reaches 1.0, increase w2
+        # If we have perfect coverage, care more about balance
         if coverage_ratio >= 1.0:
             w1 = 0.5  # Reduce coverage weight
-            w2 = 0.5  # Increase imbalance weight
+            w2 = 0.5  # Increase balance weight
         
-        # Combined objective function J (minimize)
+        # Calculate final score (lower = better)
         self.combined_score = w1 * coverage_term + w2 * imbalance_term + penalty_term
         return self.combined_score
     
     def calculate_penalty(self):
-        """Calculate penalty for constraint violations using λ(penalty) formula"""
+        """
+        WHAT DOES THIS DO?
+        - Calculates penalty for breaking rules
+        - Different penalties for different rule violations
+        - Higher penalty = worse solution
+        """
         violations = self.fitness['problems']
         penalty = 0
         
-        # Penalty factors as suggested in image (λ = 100-10000 range)
+        # Different penalties for different rule violations
         penalty_factors = {
-            'out_of_bounds': 1000,    # Highest penalty for boundaries
-            'obstacle_collision': 500, # Middle penalty for obstacles  
-            'path_jump': 100          # Minimum penalty for path jumps
+            'out_of_bounds': 1000,    # BIG penalty: robot goes outside grid
+            'obstacle_collision': 500, # MEDIUM penalty: robot hits obstacle  
+            'path_jump': 100          # SMALL penalty: robot jumps between non-adjacent cells
         }
         
+        # Check each violation and add appropriate penalty
         for violation in violations:
-            if "outside grid" in violation or "out of map" in violation:
+            if "goes outside grid" in violation:
                 penalty += penalty_factors['out_of_bounds']
-            elif "hits obstacle" in violation or "enters obstacle" in violation:
+            elif "hits obstacle" in violation:
                 penalty += penalty_factors['obstacle_collision']
-            elif "jumps" in violation or "jumps from" in violation:
+            elif "jumps from" in violation:
                 penalty += penalty_factors['path_jump']
         
         return penalty
-    
+    #store best solutiojn for now
     def copy(self):
-        """Create a deep copy of this solution"""
+        """
+        WHAT DOES THIS DO?
+        - Creates an exact copy of this solution
+        - Needed because we don't want to accidentally change the original
+        """
         return RobotCoverageSolution(
             self.assignment, self.paths, self.all_cells, 
             self.free_cells, self.obstacles, self.grid_width, self.grid_height
         )
 
 def generate_random_solution(all_cells, free_cells, obstacles, grid_width, grid_height, num_robots):
-    """Generate a random initial solution"""
+    """
+    WHAT DOES THIS DO?
+    - Creates a random starting solution for SA algorithm
+    - Like throwing robots randomly on the grid
+    - Divides cells equally among robots
+    """
     
     # Step 1: Randomly assign free cells to robots
     assignment = []
@@ -113,15 +141,15 @@ def generate_random_solution(all_cells, free_cells, obstacles, grid_width, grid_
     shuffled_free_cells = copy.deepcopy(free_cells)
     random.shuffle(shuffled_free_cells)
     
-    # Assign cells to robots in round-robin fashion
+    # Assign cells to robots in round-robin fashion (like dealing cards)
     free_cell_index = 0
     for cell_idx in range(len(all_cells)):
         if cell_idx in obstacles:
-            assignment.append(obstacle_assignment.copy())
+            assignment.append(obstacle_assignment.copy())  # Obstacle = no robot
         else:
-            robot_id = free_cell_index % num_robots
+            robot_id = free_cell_index % num_robots  # Robot 0, 1, 2, 0, 1, 2...
             robot_assignment = [0] * num_robots
-            robot_assignment[robot_id] = 1
+            robot_assignment[robot_id] = 1  # This cell belongs to this robot
             assignment.append(robot_assignment)
             free_cell_index += 1
     
@@ -134,19 +162,24 @@ def generate_random_solution(all_cells, free_cells, obstacles, grid_width, grid_
             if assignment_row[robot_id] == 1:
                 robot_cells.append(cell_idx)
         
-        # Simple path: visit cells in order
+        # Simple path: visit cells in order (not optimal, but valid)
         robot_paths.append(robot_cells)
     
     return RobotCoverageSolution(assignment, robot_paths, all_cells, 
                                free_cells, obstacles, grid_width, grid_height)
 
 def generate_neighbor_solution(current_solution):
-    """Generate a neighbor solution by swapping cell assignments"""
+    """
+    WHAT DOES THIS DO?
+    - Creates a slightly different solution from the current one
+    - Does this by swapping cells between two robots
+    - This is how SA explores new solutions
+    """
     
     # Create a copy of current solution
     neighbor = current_solution.copy()
     
-    # Find two different robots to swap cells between
+    # Pick two different robots to swap cells between
     num_robots = len(neighbor.assignment[0])
     robot1 = random.randint(0, num_robots - 1)
     robot2 = random.randint(0, num_robots - 1)
@@ -173,13 +206,13 @@ def generate_neighbor_solution(current_solution):
     cell1 = random.choice(robot1_cells)
     cell2 = random.choice(robot2_cells)
     
-    # Swap the assignments
+    # Swap the assignments (robot1 gets cell2, robot2 gets cell1)
     neighbor.assignment[cell1][robot1] = 0
     neighbor.assignment[cell1][robot2] = 1
     neighbor.assignment[cell2][robot1] = 1
     neighbor.assignment[cell2][robot2] = 0
     
-    # Regenerate paths for affected robots
+    # Update paths for affected robots
     for robot_id in [robot1, robot2]:
         robot_cells = []
         for cell_idx, assignment_row in enumerate(neighbor.assignment):
@@ -189,65 +222,74 @@ def generate_neighbor_solution(current_solution):
     
     return neighbor
 
-def simulated_annealing(all_cells, free_cells, obstacles, grid_width, grid_height, num_robots):
-    """Main Simulated Annealing algorithm"""
+def simulated_annealing(all_cells, free_cells, obstacles, grid_width, grid_height, num_robots, 
+                      initial_temp=1000.0, cooling_rate=0.95, max_iterations=50):
+    """
+    WHAT IS THIS FUNCTION?
+    - This is the MAIN Simulated Annealing algorithm
+    - It's like a smart search that tries to find the best solution
+    - Starts random, gets smarter over time
     
-    # SA Parameters
-    initial_temp = 1000.0
-    cooling_rate = 0.95
-    max_iterations = 2000
+    HOW IT WORKS:
+    1. Start with random solution
+    2. Try small changes (neighbor solutions)
+    3. Accept better solutions always
+    4. Sometimes accept worse solutions (to avoid getting stuck)
+    5. Gradually become more picky about accepting worse solutions
+    6. Return the best solution found
+    """
     
     print(f"Starting Simulated Annealing...")
     print(f"Parameters: T0={initial_temp}, cooling_rate={cooling_rate}, iterations={max_iterations}")
     
-    # Generate initial random solution
+    # Step 1: Generate random starting solution
     current_solution = generate_random_solution(
         all_cells, free_cells, obstacles, grid_width, grid_height, num_robots
     )
     current_solution.evaluate()
     
+    # Keep track of the best solution found so far
     best_solution = current_solution.copy()
     best_solution.evaluate()
     
-    temperature = initial_temp
+    temperature = initial_temp  # Start hot (accepts bad solutions)
     
     print(f"Initial solution: Coverage={current_solution.fitness['coverage_score']}, "
           f"Balance={current_solution.fitness['balance_score']:.3f}, "
           f"Combined={current_solution.combined_score:.3f}")
     
-    # Main SA loop
+    # Main SA loop - try to improve solution
     for iteration in range(max_iterations):
-        # Generate neighbor solution
+        # Step 2: Generate neighbor solution (slight change)
         neighbor = generate_neighbor_solution(current_solution)
         neighbor.evaluate()
         
-        # Calculate fitness difference
+        # Step 3: Calculate if neighbor is better or worse
         delta = neighbor.combined_score - current_solution.combined_score
         
-        # Accept or reject based on SA criteria
-        if delta < 0:  # Neighbor is better
+        # Step 4: Accept or reject neighbor
+        if delta < 0:  # Neighbor is better - always accept
             current_solution = neighbor
             best_score = best_solution.combined_score if best_solution.combined_score is not None else float('inf')
             if neighbor.combined_score < best_score:
                 best_solution = neighbor.copy()
-        else:  # Neighbor is worse, accept with probability
+        else:  # Neighbor is worse - accept with probability
             if random.random() < math.exp(-delta / temperature):
                 current_solution = neighbor
-        
-        # Cool down temperature
+       # ?????????????????????????
+        # Step 5: Cool down temperature (become more picky)
         temperature *= cooling_rate
         
-        # Print progress every 200 iterations
-        if iteration % 200 == 0:
-            current_score = current_solution.combined_score if current_solution.combined_score is not None else 0
-            best_score = best_solution.combined_score if best_solution.combined_score is not None else 0
-            print(f"Iteration {iteration}: T={temperature:.2f}, "
-                  f"Current={current_score:.3f}, "
-                  f"Best={best_score:.3f}")
+        # Print progress every iteration
+        current_score = current_solution.combined_score if current_solution.combined_score is not None else 0
+        best_score = best_solution.combined_score if best_solution.combined_score is not None else 0
+        print(f"Iteration {iteration}: T={temperature:.2f}, "
+              f"Current={current_score:.3f}, "
+              f"Best={best_score:.3f}")
     
     print(f"\nSA Complete!")
     
-    # Ensure best solution is evaluated
+    # Make sure best solution is evaluated
     if best_solution.fitness is None:
         best_solution.evaluate()
     
@@ -261,7 +303,12 @@ def simulated_annealing(all_cells, free_cells, obstacles, grid_width, grid_heigh
     return best_solution
 
 def print_sa_results(solution):
-    """Print detailed results of SA solution"""
+    """
+    WHAT DOES THIS DO?
+    - Prints detailed results of the SA solution
+    - Shows coverage, balance, violations, assignments, and paths
+    - Helps us understand how good the solution is
+    """
     print("\n" + "="*60)
     print("SIMULATED ANNEALING RESULTS")
     print("="*60)
@@ -290,34 +337,3 @@ def print_sa_results(solution):
     print(f"\nRobot Paths:")
     for robot_id, path in enumerate(solution.paths):
         print(f"Robot {robot_id}: {path}")
-
-# Example usage
-if __name__ == "__main__":
-    # Configuration
-    grid_width = 3
-    grid_height = 3
-    num_robots = 2
-    obstacles = [4]  # Cell 4 is an obstacle
-    
-    print("Multi-Robot Coverage Path Planning with Simulated Annealing")
-    print("="*60)
-    
-    total_cells = grid_width * grid_height
-    free_cells = [i for i in range(total_cells) if i not in obstacles]
-    
-    # Create grid cells
-    all_cells = []
-    for y in range(grid_height):
-        for x in range(grid_width):
-            all_cells.append((x, y))
-    
-    print(f"Grid: {grid_width}x{grid_height}, Robots: {num_robots}")
-    print(f"Total cells: {total_cells}, Free cells: {len(free_cells)}, Obstacles: {len(obstacles)}")
-    
-    # Run Simulated Annealing
-    best_solution = simulated_annealing(
-        all_cells, free_cells, obstacles, grid_width, grid_height, num_robots
-    )
-    
-    # Print detailed results
-    print_sa_results(best_solution)
