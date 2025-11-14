@@ -122,6 +122,52 @@ class RobotCoverageSolution:
             self.free_cells, self.obstacles, self.grid_width, self.grid_height
         )
 
+    def get_coverage_efficiency(self):
+        """Performance Index 1: Coverage Efficiency (0-1, higher=better)"""
+        if self.fitness is None:
+            self.evaluate()
+        if len(self.free_cells) == 0:
+            return 0.0
+        return self.fitness['coverage_score'] / len(self.free_cells)
+    
+    def get_workload_balance_index(self):
+        """Performance Index 2: Workload Balance (0-1, higher=better)"""
+        if self.fitness is None:
+            self.evaluate()
+        return 1.0 / (1.0 + self.fitness['balance_score'])
+    
+    def get_constraint_satisfaction_rate(self):
+        """Performance Index 3: Constraint Satisfaction (0-1, higher=better)"""
+        if self.fitness is None:
+            self.evaluate()
+        total_violations = sum(self.fitness['violations'].values())
+        total_moves = sum(len(path) for path in self.paths.values())
+        if total_moves == 0:
+            return 1.0
+        return max(0.0, (total_moves - total_violations) / total_moves)
+    
+    def get_solution_quality_index(self):
+        """Performance Index 4: Overall Quality (0-1, higher=better)"""
+        coverage = self.get_coverage_efficiency()
+        balance = self.get_workload_balance_index()
+        constraints = self.get_constraint_satisfaction_rate()
+        return 0.5 * coverage + 0.3 * balance + 0.2 * constraints
+    
+    def get_all_performance_metrics(self):
+        """Returns dictionary of all metrics for SA vs GA comparison"""
+        return {
+            'coverage_efficiency': self.get_coverage_efficiency(),
+            'workload_balance_index': self.get_workload_balance_index(),
+            'constraint_satisfaction_rate': self.get_constraint_satisfaction_rate(),
+            'solution_quality_index': self.get_solution_quality_index(),
+            'combined_score': self.combined_score,
+            'raw_coverage': self.fitness['coverage_score'] if self.fitness else 0,
+            'raw_balance': self.fitness['balance_score'] if self.fitness else float('inf'),
+            'total_violations': sum(self.fitness['violations'].values()) if self.fitness else 0,
+            'cells_covered': self.fitness['coverage_score'] if self.fitness else 0,
+            'total_free_cells': len(self.free_cells)
+        }
+
 def generate_random_solution(all_cells, free_cells, obstacles, grid_width, grid_height, num_robots):
     """
     WHAT DOES THIS DO?
@@ -328,26 +374,14 @@ def apply_elitism(population, new_population, elitism_count=2):
     return sorted_new_population
 
 def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height, num_robots,
-                      population_size=50, generations=50, crossover_rate=0.8, mutation_rate=0.1, elitism_count=2):
+                      population_size=50, generations=100, crossover_rate=0.8, mutation_rate=0.1, elitism_count=2):
     """
-    WHAT IS THIS FUNCTION?
-    - This is the MAIN Genetic Algorithm
-    - It's like evolution - solutions get better over generations
-    - Uses selection, crossover, mutation, and elitism
-    
-    HOW IT WORKS:
-    1. Create random population
-    2. For each generation:
-       a. Select parents (tournament selection)
-       b. Create children (crossover)
-       c. Mutate children
-       d. Keep best solutions (elitism)
-    3. Return best solution found
+    Genetic Algorithm for robot coverage problem
     """
     
     print(f"Starting Genetic Algorithm...")
     print(f"Parameters: Population={population_size}, Generations={generations}, "
-          f"Crossover={crossover_rate}, Mutation={mutation_rate}, Elitism={elitism_count}")
+          f"Crossover={crossover_rate}, Mutation={mutation_rate}")
     
     # Step 1: Initialize population (generation 0)
     population = initialize_population(
@@ -365,6 +399,16 @@ def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height,
               f"Combined={best_score:.3f}")
     else:
         print(f"Initial best solution: Combined={best_score:.3f}")
+    
+    # ADD THIS: Track convergence history
+    convergence_history = {
+        'generation': [],
+        'best_score': [],
+        'avg_score': [],
+        'worst_score': [],
+        'best_coverage': [],
+        'best_balance': []
+    }
     
     # Main GA loop - evolve for multiple generations
     for generation in range(generations):
@@ -403,6 +447,21 @@ def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height,
             best_solution = current_best.copy()
             best_score = current_best_score
         
+        # ADD THIS: Record metrics for this generation
+        scores = [sol.combined_score if sol.combined_score is not None else float('inf') 
+                  for sol in population]
+        convergence_history['generation'].append(generation)
+        convergence_history['best_score'].append(min(scores))
+        convergence_history['avg_score'].append(sum(scores) / len(scores))
+        convergence_history['worst_score'].append(max(scores))
+        
+        if best_solution.fitness:
+            convergence_history['best_coverage'].append(best_solution.fitness['coverage_score'])
+            convergence_history['best_balance'].append(best_solution.fitness['balance_score'])
+        else:
+            convergence_history['best_coverage'].append(0)
+            convergence_history['best_balance'].append(float('inf'))
+        
         # Print progress every 10 generations
         if generation % 10 == 0 or generation == generations - 1:
             valid_scores = [s.combined_score for s in population if s.combined_score is not None]
@@ -424,7 +483,8 @@ def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height,
     else:
         print("Best solution evaluation failed")
     
-    return best_solution
+    # MODIFY RETURN: Include convergence history
+    return best_solution, convergence_history
 
 def print_ga_results(solution):
     """
@@ -462,6 +522,218 @@ def print_ga_results(solution):
     for robot_id, path in enumerate(solution.paths):
         print(f"Robot {robot_id}: {path}")
 
+def test_ga_parameters(all_cells, free_cells, obstacles, grid_width, grid_height, num_robots, 
+                       test_name="Parameter Sensitivity Test"):
+    """
+    Test GA with different parameter configurations
+    REQUIRED for Milestone 4 - Parameter Analysis
+    """
+    results = {}
+    
+    print(f"\n{'='*70}")
+    print(f"GA PARAMETER SENSITIVITY ANALYSIS: {test_name}")
+    print(f"{'='*70}")
+    
+    # Test 1: Population Size Effect
+    print("\n[TEST 1/4] Population Size Effect")
+    print("-" * 70)
+    for pop_size in [20, 50, 100]:
+        print(f"  → Running with population_size={pop_size}...")
+        solution, history = genetic_algorithm(
+            all_cells, free_cells, obstacles, grid_width, grid_height, num_robots,
+            population_size=pop_size, generations=50, crossover_rate=0.8, mutation_rate=0.1
+        )
+        results[f'pop_{pop_size}'] = {
+            'solution': solution,
+            'history': history,
+            'metrics': solution.get_all_performance_metrics(),
+            'parameter': 'population_size',
+            'value': pop_size
+        }
+        print(f"     ✓ Best Score: {solution.combined_score:.4f}")
+    
+    # Test 2: Mutation Rate Effect
+    print("\n[TEST 2/4] Mutation Rate Effect")
+    print("-" * 70)
+    for mut_rate in [0.05, 0.1, 0.2, 0.3]:
+        print(f"  → Running with mutation_rate={mut_rate}...")
+        solution, history = genetic_algorithm(
+            all_cells, free_cells, obstacles, grid_width, grid_height, num_robots,
+            population_size=50, generations=50, crossover_rate=0.8, mutation_rate=mut_rate
+        )
+        results[f'mut_{mut_rate}'] = {
+            'solution': solution,
+            'history': history,
+            'metrics': solution.get_all_performance_metrics(),
+            'parameter': 'mutation_rate',
+            'value': mut_rate
+        }
+        print(f"     ✓ Best Score: {solution.combined_score:.4f}")
+    
+    # Test 3: Crossover Rate Effect
+    print("\n[TEST 3/4] Crossover Rate Effect")
+    print("-" * 70)
+    for cross_rate in [0.6, 0.8, 0.95]:
+        print(f"  → Running with crossover_rate={cross_rate}...")
+        solution, history = genetic_algorithm(
+            all_cells, free_cells, obstacles, grid_width, grid_height, num_robots,
+            population_size=50, generations=50, crossover_rate=cross_rate, mutation_rate=0.1
+        )
+        results[f'cross_{cross_rate}'] = {
+            'solution': solution,
+            'history': history,
+            'metrics': solution.get_all_performance_metrics(),
+            'parameter': 'crossover_rate',
+            'value': cross_rate
+        }
+        print(f"     ✓ Best Score: {solution.combined_score:.4f}")
+    
+    # Test 4: Generation Count Effect
+    print("\n[TEST 4/4] Generation Count Effect")
+    print("-" * 70)
+    for gens in [25, 50, 100, 200]:
+        print(f"  → Running with generations={gens}...")
+        solution, history = genetic_algorithm(
+            all_cells, free_cells, obstacles, grid_width, grid_height, num_robots,
+            population_size=50, generations=gens, crossover_rate=0.8, mutation_rate=0.1
+        )
+        results[f'gen_{gens}'] = {
+            'solution': solution,
+            'history': history,
+            'metrics': solution.get_all_performance_metrics(),
+            'parameter': 'generations',
+            'value': gens
+        }
+        print(f"     ✓ Best Score: {solution.combined_score:.4f}")
+    
+    print(f"\n{'='*70}")
+    print("PARAMETER TESTING COMPLETE!")
+    print(f"{'='*70}\n")
+    
+    return results
+
+def analyze_convergence(convergence_history):
+    """
+    Analyze convergence behavior - REQUIRED for milestone report
+    Returns metrics about how the algorithm converged
+    """
+    best_scores = convergence_history['best_score']
+    
+    analysis = {
+        'total_generations': len(best_scores),
+        'initial_score': best_scores[0] if best_scores else None,
+        'final_score': best_scores[-1] if best_scores else None,
+        'best_score_ever': min(best_scores) if best_scores else None,
+        'converged_at_generation': None,
+        'total_improvement': None,
+        'improvement_percentage': None,
+        'avg_improvement_per_gen': None,
+        'stagnation_generations': 0
+    }
+    
+    if len(best_scores) > 1:
+        initial = best_scores[0]
+        final = best_scores[-1]
+        analysis['total_improvement'] = initial - final
+        
+        if initial != 0:
+            analysis['improvement_percentage'] = ((initial - final) / initial) * 100
+        
+        analysis['avg_improvement_per_gen'] = analysis['total_improvement'] / len(best_scores)
+        
+        # Find convergence point (no improvement for 10 consecutive generations)
+        threshold = 1e-6
+        for i in range(10, len(best_scores)):
+            recent_scores = best_scores[i-10:i]
+            if max(recent_scores) - min(recent_scores) < threshold:
+                analysis['converged_at_generation'] = i - 10
+                analysis['stagnation_generations'] = len(best_scores) - (i - 10)
+                break
+    
+    return analysis
+
+def print_solution_summary(solution, convergence_history=None, algorithm_name="GA"):
+    """
+    Print comprehensive solution summary for milestone report
+    """
+    print("\n" + "="*70)
+    print(f"{algorithm_name} SOLUTION SUMMARY")
+    print("="*70)
+    
+    metrics = solution.get_all_performance_metrics()
+    
+    print(f"\n📊 PERFORMANCE METRICS (for SA vs GA Comparison):")
+    print(f"  • Coverage Efficiency:          {metrics['coverage_efficiency']:.2%}")
+    print(f"  • Workload Balance Index:       {metrics['workload_balance_index']:.4f}")
+    print(f"  • Constraint Satisfaction:      {metrics['constraint_satisfaction_rate']:.2%}")
+    print(f"  • Solution Quality Index:       {metrics['solution_quality_index']:.4f}")
+    print(f"  • Combined Score (minimize):    {metrics['combined_score']:.4f}")
+    
+    print(f"\n📈 RAW SCORES:")
+    print(f"  • Coverage:                     {metrics['cells_covered']}/{metrics['total_free_cells']} cells")
+    print(f"  • Balance (variance):           {metrics['raw_balance']:.4f}")
+    print(f"  • Total Violations:             {metrics['total_violations']}")
+    
+    if convergence_history:
+        analysis = analyze_convergence(convergence_history)
+        print(f"\n🔄 CONVERGENCE ANALYSIS:")
+        print(f"  • Total Generations:            {analysis['total_generations']}")
+        print(f"  • Initial Score:                {analysis['initial_score']:.4f}")
+        print(f"  • Final Score:                  {analysis['final_score']:.4f}")
+        print(f"  • Best Score Ever:              {analysis['best_score_ever']:.4f}")
+        
+        if analysis['converged_at_generation'] is not None:
+            print(f"  • Converged at Generation:      {analysis['converged_at_generation']}")
+            print(f"  • Stagnation Generations:       {analysis['stagnation_generations']}")
+        else:
+            print(f"  • Convergence Status:           Still improving")
+        
+        if analysis['improvement_percentage'] is not None:
+            print(f"  • Total Improvement:            {analysis['improvement_percentage']:.2f}%")
+            print(f"  • Avg Improvement/Gen:          {analysis['avg_improvement_per_gen']:.6f}")
+    
+    print("="*70 + "\n")
+
+def compare_parameter_results(results):
+    """
+    Compare results from parameter sensitivity testing
+    Generates summary for milestone report
+    """
+    print("\n" + "="*70)
+    print("PARAMETER SENSITIVITY ANALYSIS SUMMARY")
+    print("="*70)
+    
+    # Group by parameter type
+    param_groups = {}
+    for key, value in results.items():
+        param_type = value['parameter']
+        if param_type not in param_groups:
+            param_groups[param_type] = []
+        param_groups[param_type].append((value['value'], value['metrics']))
+    
+    # Print analysis for each parameter
+    for param_name, param_data in param_groups.items():
+        print(f"\n📊 {param_name.upper()} EFFECT:")
+        print("-" * 70)
+        print(f"{'Value':<15} {'Coverage':>12} {'Balance':>12} {'Quality':>12} {'Score':>12}")
+        print("-" * 70)
+        
+        # Sort by parameter value
+        param_data.sort(key=lambda x: x[0])
+        
+        for value, metrics in param_data:
+            print(f"{str(value):<15} "
+                  f"{metrics['coverage_efficiency']:>11.2%} "
+                  f"{metrics['workload_balance_index']:>12.4f} "
+                  f"{metrics['solution_quality_index']:>12.4f} "
+                  f"{metrics['combined_score']:>12.4f}")
+        
+        # Find best value
+        best_entry = min(param_data, key=lambda x: x[1]['combined_score'])
+        print(f"\n  ✓ Best {param_name}: {best_entry[0]} (Score: {best_entry[1]['combined_score']:.4f})")
+    
+    print("\n" + "="*70 + "\n")
+
 # Example usage
 if __name__ == "__main__":
     # Configuration
@@ -483,7 +755,7 @@ if __name__ == "__main__":
     print(f"Total cells: {total_cells}, Free cells: {len(free_cells)}, Obstacles: {len(obstacles)}")
     
     # Run Genetic Algorithm
-    best_solution = genetic_algorithm(
+    best_solution, convergence_history = genetic_algorithm(
         all_cells, free_cells, obstacles, grid_width, grid_height, num_robots,
         population_size=50, generations=50, crossover_rate=0.8, mutation_rate=0.1, elitism_count=2
     )

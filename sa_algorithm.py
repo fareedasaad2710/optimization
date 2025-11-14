@@ -222,21 +222,11 @@ def generate_neighbor_solution(current_solution):
     
     return neighbor
 
-def simulated_annealing(all_cells, free_cells, obstacles, grid_width, grid_height, num_robots, 
-                      initial_temp=1000.0, cooling_rate=0.95, max_iterations=50):
+def simulated_annealing(all_cells, free_cells, obstacles, grid_width, grid_height, num_robots,
+                       initial_temp=1000, cooling_rate=0.95, max_iterations=1000):
     """
-    WHAT IS THIS FUNCTION?
-    - This is the MAIN Simulated Annealing algorithm
-    - It's like a smart search that tries to find the best solution
-    - Starts random, gets smarter over time
-    
-    HOW IT WORKS:
-    1. Start with random solution
-    2. Try small changes (neighbor solutions)
-    3. Accept better solutions always
-    4. Sometimes accept worse solutions (to avoid getting stuck)
-    5. Gradually become more picky about accepting worse solutions
-    6. Return the best solution found
+    Simulated Annealing algorithm
+    Returns: (best_solution, convergence_history)
     """
     
     print(f"Starting Simulated Annealing...")
@@ -258,6 +248,16 @@ def simulated_annealing(all_cells, free_cells, obstacles, grid_width, grid_heigh
           f"Balance={current_solution.fitness['balance_score']:.3f}, "
           f"Combined={current_solution.combined_score:.3f}")
     
+    # Initialize convergence tracking
+    convergence_history = {
+        'iteration': [],
+        'best_score': [],
+        'current_score': [],
+        'temperature': [],
+        'best_coverage': [],
+        'best_balance': []
+    }
+    
     # Main SA loop - try to improve solution
     for iteration in range(max_iterations):
         # Step 2: Generate neighbor solution (slight change)
@@ -276,7 +276,17 @@ def simulated_annealing(all_cells, free_cells, obstacles, grid_width, grid_heigh
         else:  # Neighbor is worse - accept with probability
             if random.random() < math.exp(-delta / temperature):
                 current_solution = neighbor
-       # ?????????????????????????
+        
+        # Track convergence
+        convergence_history['iteration'].append(iteration)
+        convergence_history['best_score'].append(best_score)
+        convergence_history['current_score'].append(current_solution.combined_score)
+        convergence_history['temperature'].append(temperature)
+        
+        if best_solution.fitness:
+            convergence_history['best_coverage'].append(best_solution.fitness['coverage_score'])
+            convergence_history['best_balance'].append(best_solution.fitness['balance_score'])
+        
         # Step 5: Cool down temperature (become more picky)
         temperature *= cooling_rate
         
@@ -300,7 +310,7 @@ def simulated_annealing(all_cells, free_cells, obstacles, grid_width, grid_heigh
     else:
         print("Best solution evaluation failed")
     
-    return best_solution
+    return best_solution, convergence_history
 
 def print_sa_results(solution):
     """
