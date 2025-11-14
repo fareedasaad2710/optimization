@@ -108,18 +108,20 @@ class RobotCoverageSolution:
                 penalty += penalty_factors['obstacle_collision']
             elif "jumps from" in violation:
                 penalty += penalty_factors['path_jump']
-        
+        all_cells, free_cells, obstacles, grid_width, grid_height,
         return penalty
     
     def copy(self):
-        """
-        WHAT DOES THIS DO?
-        - Creates an exact copy of this solution
-        - Needed because we don't want to accidentally change the original
-        """
+        """Create a deep copy of this solution"""
+        import copy as copy_module
         return RobotCoverageSolution(
-            self.assignment, self.paths, self.all_cells, 
-            self.free_cells, self.obstacles, self.grid_width, self.grid_height
+            copy_module.deepcopy(self.assignment),
+            copy_module.deepcopy(self.paths),  # ✅ Deep copy dictionary
+            self.all_cells,
+            self.free_cells,
+            self.obstacles,
+            self.grid_width,
+            self.grid_height
         )
 
     def get_coverage_efficiency(self):
@@ -170,61 +172,49 @@ class RobotCoverageSolution:
 
 def generate_random_solution(all_cells, free_cells, obstacles, grid_width, grid_height, num_robots):
     """
-    WHAT DOES THIS DO?
-    - Creates a random starting solution for GA algorithm
-    - Like throwing robots randomly on the grid
-    - Divides cells equally among robots
+    Generate a random solution for robot coverage problem
+    
+    Returns:
+        RobotCoverageSolution with:
+        - assignment: list[list[int]] - which robot covers which cell
+        - paths: dict[int, list[int]] - {robot_id: [cell1, cell2, ...]}
     """
+    total_cells = len(all_cells)
     
-    # Step 1: Randomly assign free cells to robots
-    assignment = []
-    obstacle_assignment = [0] * num_robots  # Obstacles assigned to no robot
+    # Step 1: Create assignment matrix
+    assignment = [[0 for _ in range(num_robots)] for _ in range(total_cells)]
     
-    # Shuffle free cells for random assignment
-    shuffled_free_cells = copy.deepcopy(free_cells)
-    random.shuffle(shuffled_free_cells)
+    # Randomly assign each free cell to a robot
+    for cell_idx in free_cells:
+        robot_id = random.randint(0, num_robots - 1)
+        assignment[cell_idx][robot_id] = 1
     
-# 		assignment = [
-#     [1, 0],  # Cell 0: Robot 0
-#     [0, 1],  # Cell 1: Robot 1
-#     [1, 0],  # Cell 2: Robot 0
-#     [0, 1],  # Cell 3: Robot 1
-#     [0, 0],  # Cell 4: Obstacle
-#     [1, 0],  # Cell 5: Robot 0
-#     [0, 1],  # Cell 6: Robot 1
-#     [1, 0],  # Cell 7: Robot 0
-#     [0, 1],  # Cell 8: Robot 1
-# ]
-    # Assign cells to robots in round-robin fashion (like dealing cards)
-    free_cell_index = 0
-    for cell_idx in range(len(all_cells)):
-        if cell_idx in obstacles:
-            assignment.append(obstacle_assignment.copy())  # Obstacle = no robot
-        else:
-            robot_id = free_cell_index % num_robots  # Robot 0, 1, 2, 0, 1, 2...
-            robot_assignment = [0] * num_robots
-            robot_assignment[robot_id] = 1  # This cell belongs to this robot
-            assignment.append(robot_assignment)
-            free_cell_index += 1
+    # Step 2: Generate paths for each robot as DICTIONARY
+    robot_paths = {}  # ✅ Must be dictionary
     
-    # Step 2: Generate simple paths for each robot
-# 		robot_paths = [
-#     [0, 2, 5, 7],  # Robot 0's path
-#     [1, 3, 6, 8],  # Robot 1's path
-# ]
-    robot_paths = []
     for robot_id in range(num_robots):
-        # Find cells assigned to this robot
-        robot_cells = []
-        for cell_idx, assignment_row in enumerate(assignment):
-            if assignment_row[robot_id] == 1:
-                robot_cells.append(cell_idx)
+        # Get cells assigned to this robot
+        robot_cells = [cell_idx for cell_idx in free_cells 
+                      if assignment[cell_idx][robot_id] == 1]
         
-        # Simple path: visit cells in order (not optimal, but valid)
-        robot_paths.append(robot_cells)
+        # Shuffle to create random path order
+        random.shuffle(robot_cells)
+        
+        # Store as list in dictionary
+        robot_paths[robot_id] = robot_cells  # ✅ Dictionary: {0: [cells], 1: [cells]}
     
-    return RobotCoverageSolution(assignment, robot_paths, all_cells, 
-                               free_cells, obstacles, grid_width, grid_height)
+    # Step 3: Create solution object
+    solution = RobotCoverageSolution(
+        assignment, 
+        robot_paths,  # ✅ Pass dictionary
+        all_cells, 
+        free_cells, 
+        obstacles, 
+        grid_width, 
+        grid_height
+    )
+    
+    return solution
 
 def initialize_population(population_size, all_cells, free_cells, obstacles, grid_width, grid_height, num_robots):
     """
@@ -261,15 +251,19 @@ def tournament_selection(population, tournament_size=3):
 def crossover(parent1, parent2, crossover_rate=0.8):
     """
     WHAT DOES THIS DO?
-    - ONE-POINT CROSSOVER: Combines two parent solutions at a random point
-    - Like cutting both parents at the same point and swapping the parts
-    - With probability crossover_rate, we combine them
-    - Otherwise, just return parent1
+    - PATH-BASED CROSSOVER: Combines robot paths from two parents
+    - Each robot's path comes from either parent1 or parent2
+    - This preserves path structure better than cell-by-cell crossover
     
-    HOW ONE-POINT CROSSOVER WORKS:
-    - Pick a random crossover point (e.g., cell index 5)
-    - Child gets: parent1's assignments before point + parent2's assignments after point
-    - Example: Child = Parent1[0:5] + Parent2[5:]
+    HOW PATH-BASED CROSSOVER WORKS:
+    - For each robot, randomly choose to inherit path from parent1 or parent2
+    - Example: Robot 0 from Parent1, Robot 1 from Parent2, Robot 2 from Parent1
+    - This maintains path continuity and feasibility
+    
+    CHROMOSOME REPRESENTATION:
+    - Chromosome = collection of robot paths
+    - Gene = one robot's complete path
+    - Crossover = swapping entire paths between parents
     """
     if random.random() > crossover_rate:
         return parent1.copy()  # No crossover, return parent1
@@ -277,76 +271,241 @@ def crossover(parent1, parent2, crossover_rate=0.8):
     # Create child solution
     child = parent1.copy()
     
-    # ONE-POINT CROSSOVER: Pick a random crossover point
-    num_cells = len(parent1.assignment)
-    crossover_point = random.randint(1, num_cells - 1)  # Point between 1 and num_cells-1
+    # PATH-BASED CROSSOVER: For each robot, randomly inherit path from parent1 or parent2
+    num_robots = len(parent1.paths)
     
-    # Child gets parent1's assignments before crossover point
-    # Child gets parent2's assignments after crossover point
-    for cell_idx in range(crossover_point, num_cells):
-        child.assignment[cell_idx] = copy.deepcopy(parent2.assignment[cell_idx])
-    
-    # Update paths for all robots (since assignments changed)
-    num_robots = len(parent1.assignment[0])
     for robot_id in range(num_robots):
-        robot_cells = []
-        for cell_idx, assignment_row in enumerate(child.assignment):
-            if assignment_row[robot_id] == 1:
-                robot_cells.append(cell_idx)
-        child.paths[robot_id] = robot_cells
+        # 50% chance to inherit this robot's path from parent2
+        if random.random() < 0.5:
+            # Inherit from parent2
+            child.paths[robot_id] = copy.deepcopy(parent2.paths[robot_id])
+            
+            # Update assignment matrix to match the new path
+            # First, clear this robot's assignments
+            for cell_idx in range(len(child.assignment)):
+                child.assignment[cell_idx][robot_id] = 0
+            
+            # Then, assign cells from parent2's path
+            for cell_idx in parent2.paths[robot_id]:
+                if cell_idx < len(child.assignment):
+                    child.assignment[cell_idx][robot_id] = 1
+    
+    # Note: This might create conflicts where a cell is assigned to multiple robots
+    # The mutation step will help fix these issues
     
     return child
 
+
+def crossover_order_based(parent1, parent2, crossover_rate=0.8):
+    """
+    ONE-POINT ORDER-BASED CROSSOVER (OX1)
+    
+    Standard crossover for path planning problems.
+    May create invalid paths - handled by penalty function.
+    """
+    if random.random() > crossover_rate:
+        return parent1.copy()
+    
+    child = parent1.copy()
+    num_robots = len(parent1.paths)
+    
+    for robot_id in range(num_robots):
+        # Validate robot exists in both parents
+        if robot_id not in parent1.paths or robot_id not in parent2.paths:
+            continue
+        
+        parent1_path = parent1.paths[robot_id]
+        parent2_path = parent2.paths[robot_id]
+        
+        # Skip if paths too short
+        if len(parent1_path) < 2 or len(parent2_path) < 2:
+            continue
+        
+        # ONE-POINT CROSSOVER
+        path_length = min(len(parent1_path), len(parent2_path))
+        crossover_point = random.randint(1, path_length - 1)
+        
+        # Copy segment from parent1
+        child_path = parent1_path[:crossover_point].copy()
+        used_cells = set(child_path)
+        
+        # Fill remaining with parent2's cells in order
+        for cell in parent2_path:
+            if cell not in used_cells:
+                child_path.append(cell)
+                used_cells.add(cell)
+                if len(child_path) >= len(parent1_path):
+                    break
+        
+        # Fill any remaining with parent1's unused cells
+        if len(child_path) < len(parent1_path):
+            for cell in parent1_path:
+                if cell not in used_cells:
+                    child_path.append(cell)
+                    used_cells.add(cell)
+                    if len(child_path) >= len(parent1_path):
+                        break
+        
+        # Update child's path and assignment
+        child.paths[robot_id] = child_path
+        
+        for cell_idx in range(len(child.assignment)):
+            child.assignment[cell_idx][robot_id] = 0
+        
+        for cell_idx in child_path:
+            if cell_idx < len(child.assignment):
+                child.assignment[cell_idx][robot_id] = 1
+    
+    return child
+
+
+# Replace apply_crossover (around line 470):
+
+def apply_crossover(parent1, parent2, crossover_rate=0.8):
+    """
+    Apply ONE-POINT ORDER-BASED CROSSOVER (OX1)
+    
+    This is the only crossover method used in this implementation.
+    Standard for path planning problems.
+    """
+    return crossover_order_based(parent1, parent2, crossover_rate)
 def mutate(solution, mutation_rate=0.1):
     """
     WHAT DOES THIS DO?
-    - Adds random changes to a solution
-    - Like genetic mutations - small random changes
-    - With probability mutation_rate, we swap cells between robots
+    - PATH-BASED MUTATION: Modifies robot paths directly
+    - Three types of mutations:
+      1. Swap two cells within same robot's path (path reordering)
+      2. Transfer a cell from one robot to another (workload balancing)
+      3. Insert a random unassigned cell into a robot's path (coverage improvement)
     """
     if random.random() > mutation_rate:
         return solution  # No mutation
     
-    # Mutation: swap cells between two random robots
-    num_robots = len(solution.assignment[0])
+    num_robots = len(solution.paths)
+    
+    # Choose mutation type randomly
+    mutation_type = random.choice(['swap_within_path', 'transfer_cell', 'insert_cell'])
+    
+    if mutation_type == 'swap_within_path':
+        # MUTATION TYPE 1: Swap two positions in a robot's path
+        robot_id = random.randint(0, num_robots - 1)
+        path = solution.paths[robot_id]
+        
+        if len(path) >= 2:
+            # Pick two random positions
+            pos1 = random.randint(0, len(path) - 1)
+            pos2 = random.randint(0, len(path) - 1)
+            
+            # Swap them
+            path[pos1], path[pos2] = path[pos2], path[pos1]
+            solution.paths[robot_id] = path
+    
+    elif mutation_type == 'transfer_cell':
+        # MUTATION TYPE 2: Transfer a cell from one robot to another
+        robot1 = random.randint(0, num_robots - 1)
+        robot2 = random.randint(0, num_robots - 1)
+        
+        # Make sure they're different
+        while robot2 == robot1 and num_robots > 1:
+            robot2 = random.randint(0, num_robots - 1)
+        
+        path1 = solution.paths[robot1]
+        
+        if len(path1) > 0:
+            # Pick random cell from robot1's path
+            transfer_idx = random.randint(0, len(path1) - 1)
+            cell_to_transfer = path1[transfer_idx]
+            
+            # Remove from robot1
+            solution.paths[robot1] = [c for i, c in enumerate(path1) if i != transfer_idx]
+            
+            # Add to robot2
+            solution.paths[robot2].append(cell_to_transfer)
+            
+            # Update assignment matrix
+            solution.assignment[cell_to_transfer][robot1] = 0
+            solution.assignment[cell_to_transfer][robot2] = 1
+    
+    elif mutation_type == 'insert_cell':
+        # MUTATION TYPE 3: Insert an unassigned free cell into a random robot's path
+        # Find unassigned cells
+        assigned_cells = set()
+        for path in solution.paths.values():
+            assigned_cells.update(path)
+        
+        unassigned = [cell for cell in solution.free_cells if cell not in assigned_cells]
+        
+        if unassigned:
+            # Pick random unassigned cell
+            cell = random.choice(unassigned)
+            
+            # Pick random robot
+            robot_id = random.randint(0, num_robots - 1)
+            
+            # Insert at random position in path
+            path = solution.paths[robot_id]
+            insert_pos = random.randint(0, len(path))
+            path.insert(insert_pos, cell)
+            solution.paths[robot_id] = path
+            
+            # Update assignment matrix
+            solution.assignment[cell][robot_id] = 1
+    
+    return solution
+
+
+def mutate_path_swap(solution, mutation_rate=0.1):
+    """
+    ALTERNATIVE MUTATION: Simple path segment swap
+    - Swaps a segment of path between two robots
+    - Good for exploring different workload distributions
+    """
+    if random.random() > mutation_rate:
+        return solution
+    
+    num_robots = len(solution.paths)
+    if num_robots < 2:
+        return solution
+    
+    # Select two random robots
     robot1 = random.randint(0, num_robots - 1)
     robot2 = random.randint(0, num_robots - 1)
-    
-    # Make sure they're different robots
     while robot2 == robot1:
         robot2 = random.randint(0, num_robots - 1)
     
-    # Find cells assigned to each robot
-    robot1_cells = []
-    robot2_cells = []
+    path1 = solution.paths[robot1]
+    path2 = solution.paths[robot2]
     
-    for cell_idx, assignment_row in enumerate(solution.assignment):
-        if assignment_row[robot1] == 1:
-            robot1_cells.append(cell_idx)
-        elif assignment_row[robot2] == 1:
-            robot2_cells.append(cell_idx)
-    
-    # Make sure both robots have at least one cell
-    if len(robot1_cells) == 0 or len(robot2_cells) == 0:
-        return solution  # Can't mutate, return original
-    
-    # Pick random cells from each robot
-    cell1 = random.choice(robot1_cells)
-    cell2 = random.choice(robot2_cells)
-    
-    # Swap the assignments
-    solution.assignment[cell1][robot1] = 0
-    solution.assignment[cell1][robot2] = 1
-    solution.assignment[cell2][robot1] = 1
-    solution.assignment[cell2][robot2] = 0
-    
-    # Update paths for affected robots
-    for robot_id in [robot1, robot2]:
-        robot_cells = []
-        for cell_idx, assignment_row in enumerate(solution.assignment):
-            if assignment_row[robot_id] == 1:
-                robot_cells.append(cell_idx)
-        solution.paths[robot_id] = robot_cells
+    if len(path1) >= 2 and len(path2) >= 2:
+        # Select random segments
+        seg1_start = random.randint(0, len(path1) - 2)
+        seg1_end = random.randint(seg1_start + 1, len(path1))
+        
+        seg2_start = random.randint(0, len(path2) - 2)
+        seg2_end = random.randint(seg2_start + 1, len(path2))
+        
+        # Swap segments
+        segment1 = path1[seg1_start:seg1_end]
+        segment2 = path2[seg2_start:seg2_end]
+        
+        new_path1 = path1[:seg1_start] + segment2 + path1[seg1_end:]
+        new_path2 = path2[:seg2_start] + segment1 + path2[seg2_end:]
+        
+        solution.paths[robot1] = new_path1
+        solution.paths[robot2] = new_path2
+        
+        # Update assignments
+        for cell_idx in range(len(solution.assignment)):
+            solution.assignment[cell_idx][robot1] = 0
+            solution.assignment[cell_idx][robot2] = 0
+        
+        for cell in new_path1:
+            if cell < len(solution.assignment):
+                solution.assignment[cell][robot1] = 1
+        
+        for cell in new_path2:
+            if cell < len(solution.assignment):
+                solution.assignment[cell][robot2] = 1
     
     return solution
 
@@ -467,17 +626,21 @@ def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height,
                 print(f"         • Selected Parent 1 (score: {parent1.combined_score:.3f})")
                 print(f"         • Selected Parent 2 (score: {parent2.combined_score:.3f})")
             
-            # Create child through crossover
-            child_before_mutation = crossover(parent1, parent2, crossover_rate)
-            did_crossover = (child_before_mutation.assignment != parent1.assignment)
+            # Create child through ORDER-BASED crossover
+            child_before_mutation = apply_crossover(parent1, parent2, crossover_rate)
+            
+            # ✅ Check if paths changed (not assignment)
+            did_crossover = (child_before_mutation.paths != parent1.paths)
             if did_crossover:
                 gen_crossovers += 1
                 if verbose and generation < 2 and offspring_count < 2:
-                    print(f"         • ✂️  Crossover applied!")
+                    print(f"         • ✂️  Order-Based Crossover applied!")
             
             # Mutate child
             child = mutate(child_before_mutation, mutation_rate)
-            did_mutate = (child.assignment != child_before_mutation.assignment)
+            
+            # ✅ Check if paths changed (not assignment)
+            did_mutate = (child.paths != child_before_mutation.paths)
             if did_mutate:
                 gen_mutations += 1
                 if verbose and generation < 2 and offspring_count < 2:

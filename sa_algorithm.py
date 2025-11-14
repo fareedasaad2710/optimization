@@ -277,7 +277,9 @@ def simulated_annealing(all_cells, free_cells, obstacles, grid_width, grid_heigh
             if random.random() < math.exp(-delta / temperature):
                 current_solution = neighbor
         
-        # Track convergence
+        # Track 
+        
+        #MODIFIED
         convergence_history['iteration'].append(iteration)
         convergence_history['best_score'].append(best_score)
         convergence_history['current_score'].append(current_solution.combined_score)

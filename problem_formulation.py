@@ -65,19 +65,42 @@ def count_covered_cells(assignment, free_cells):
                 break
     return covered
 
+
 def calculate_robot_distances(paths, all_cells):
     """
-    Calculate total distance traveled by each robot
-    Used for: Computing workload imbalance (F2 objective)
+    Calculate total distance for each robot's path
+    
+    Args:
+        paths: dict[int, list[int]] - {robot_id: [cell1, cell2, ...]}
+        all_cells: list of Cell objects
+    
+    Returns:
+        dict[int, float] - {robot_id: distance}
     """
-    distances = []
-    for path in paths:
+    distances = {}
+    
+    # ✅ Iterate over dictionary
+    for robot_id, path in paths.items():  # Not paths.values()!
+        
+        # ✅ Check if path is a list
+        if not isinstance(path, list):
+            print(f"ERROR: path for robot {robot_id} is {type(path)}, not list!")
+            distances[robot_id] = 0
+            continue
+        
+        if len(path) == 0:
+            distances[robot_id] = 0
+            continue
+        
         total_distance = 0
         for i in range(len(path) - 1):
-            current_cell = all_cells[path[i]]
-            next_cell = all_cells[path[i + 1]]
-            total_distance += distance_between_points(current_cell, next_cell)
-        distances.append(total_distance)
+            cell1 = all_cells[path[i]]
+            cell2 = all_cells[path[i + 1]]
+            distance = abs(cell1.x - cell2.x) + abs(cell1.y - cell2.y)
+            total_distance += distance
+        
+        distances[robot_id] = total_distance
+    
     return distances
 
 def calculate_workload_variance(distances):
@@ -123,35 +146,128 @@ def check_path_validity(paths, all_cells, obstacles, grid_width, grid_height):
     
     return problems
 
-def evaluate_solution(all_cells, free_cells, obstacles, assignment, paths, grid_width, grid_height):
+def evaluate_solution(assignment, paths, all_cells, free_cells, obstacles, grid_width, grid_height):
     """
-    Main evaluation function for multi-robot coverage path planning
-    Used for: Computing fitness scores for SA algorithm
+    Evaluate a robot coverage solution
+    
+    Args:
+        assignment: list[list[int]] - assignment[cell][robot] = 0 or 1
+        paths: dict[int, list[int]] - {robot_id: [cell1, cell2, ...]}
+        all_cells: list of Cell objects
+        free_cells: list of free cell indices
+        obstacles: list of obstacle cell indices
+        grid_width: grid width
+        grid_height: grid height
     
     Returns:
-    - coverage_score: Number of cells covered (F1 objective) - higher is better
-    - balance_score: Workload variance (F2 objective) - lower is better  
-    - robot_distances: Distance traveled by each robot
-    - problems: List of constraint violations (for penalties)
+        dict with fitness metrics:
+        - coverage_score: number of free cells covered
+        - total_distance: sum of all robot distances
+        - max_distance: maximum distance among robots
+        - balance_score: standard deviation of distances (lower is better)
+        - path_jumps: number of non-adjacent cell transitions
+        - cell_conflicts: number of cells assigned to multiple robots
+        - problems: list of constraint violations
     """
     
-    # Objective F1: Coverage (maximize)
-    covered_count = count_covered_cells(assignment, free_cells)
-    coverage_score = covered_count
+    # Debug: Validate paths structure
+    if not isinstance(paths, dict):
+        raise TypeError(f"paths must be dict, got {type(paths)}")
     
-    # Objective F2: Workload balance (minimize variance)
-    robot_distances = calculate_robot_distances(paths, all_cells)
-    balance_score = calculate_workload_variance(robot_distances)
+    for robot_id, path in paths.items():
+        if not isinstance(path, list):
+            raise TypeError(f"paths[{robot_id}] must be list, got {type(path)}")
     
-    # Constraint validation (for penalty functions)
-    problems = check_path_validity(paths, all_cells, obstacles, grid_width, grid_height)
-    
-    return {
-        'coverage_score': coverage_score,
-        'balance_score': balance_score,
-        'robot_distances': robot_distances,
-        'problems': problems
+    # Initialize results
+    results = {
+        'coverage_score': 0,
+        'total_distance': 0,
+        'max_distance': 0,
+        'balance_score': 0,
+        'path_jumps': 0,
+        'cell_conflicts': 0,
+        'problems': []
     }
+    
+    num_robots = len(paths)
+    
+    # 1. Calculate Coverage
+    covered_cells = set()
+    for robot_id, path in paths.items():
+        covered_cells.update(path)
+    
+    results['coverage_score'] = len(covered_cells)
+    
+    # Check for uncovered cells
+    uncovered = set(free_cells) - covered_cells
+    if uncovered:
+        results['problems'].append(f"Uncovered cells: {sorted(uncovered)}")
+    
+    # 2. Calculate Robot Distances
+    robot_distances = calculate_robot_distances(paths, all_cells)
+    
+    results['total_distance'] = sum(robot_distances.values())
+    results['max_distance'] = max(robot_distances.values()) if robot_distances else 0
+    
+    # 3. Calculate Balance Score (standard deviation of distances)
+    if len(robot_distances) > 1:
+        distances_list = list(robot_distances.values())
+        mean_distance = sum(distances_list) / len(distances_list)
+        variance = sum((d - mean_distance) ** 2 for d in distances_list) / len(distances_list)
+        results['balance_score'] = math.sqrt(variance)
+    else:
+        results['balance_score'] = 0
+    
+    # 4. Check for Path Jumps (non-adjacent cells)
+    path_jumps = 0
+    for robot_id, path in paths.items():
+        for i in range(len(path) - 1):
+            cell1 = all_cells[path[i]]
+            cell2 = all_cells[path[i + 1]]
+            
+            # Check if cells are adjacent (Manhattan distance = 1)
+            if abs(cell1.x - cell2.x) + abs(cell1.y - cell2.y) != 1:
+                path_jumps += 1
+                results['problems'].append(
+                    f"Robot {robot_id}: Jump from cell {path[i]} to {path[i+1]}"
+                )
+    
+    results['path_jumps'] = path_jumps
+    
+    # 5. Check for Cell Conflicts (multiple robots assigned to same cell)
+    cell_assignment_count = {}
+    for robot_id, path in paths.items():
+        for cell_idx in path:
+            if cell_idx not in cell_assignment_count:
+                cell_assignment_count[cell_idx] = []
+            cell_assignment_count[cell_idx].append(robot_id)
+    
+    conflicts = 0
+    for cell_idx, robots in cell_assignment_count.items():
+        if len(robots) > 1:
+            conflicts += 1
+            results['problems'].append(
+                f"Cell {cell_idx} assigned to multiple robots: {robots}"
+            )
+    
+    results['cell_conflicts'] = conflicts
+    
+    # 6. Validate assignment matrix matches paths
+    for cell_idx in range(len(assignment)):
+        assigned_robots = [r for r in range(num_robots) if assignment[cell_idx][r] == 1]
+        
+        # Check if cell is in paths
+        in_paths = []
+        for robot_id, path in paths.items():
+            if cell_idx in path:
+                in_paths.append(robot_id)
+        
+        # Warn if mismatch (but don't fail)
+        if set(assigned_robots) != set(in_paths):
+            # This is just a warning, not counted as a problem
+            pass
+    
+    return results
 
 def create_grid_cells(grid_width, grid_height):
     """
