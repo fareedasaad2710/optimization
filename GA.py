@@ -26,6 +26,30 @@ import random
 import copy
 from problem_formulation import *
 
+# Simple Cell class to match problem_formulation.py expectations
+class Cell:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+def convert_cells_to_objects(all_cells):
+    """Convert tuple cells to Cell objects if needed"""
+    if len(all_cells) == 0:
+        return all_cells
+    # Check if first cell is already a Cell object
+    if hasattr(all_cells[0], 'x') and hasattr(all_cells[0], 'y'):
+        return all_cells
+    # Convert tuples to Cell objects
+    result = []
+    for cell in all_cells:
+        if isinstance(cell, tuple):
+            result.append(Cell(cell[0], cell[1]))
+        elif hasattr(cell, 'x') and hasattr(cell, 'y'):
+            result.append(cell)
+        else:
+            result.append(cell)  # Keep as is if unknown format
+    return result
+
 class RobotCoverageSolution:
     """
     WHAT IS THIS CLASS?
@@ -53,10 +77,26 @@ class RobotCoverageSolution:
         - Uses the formula: J = w1(1 - coverage) + w2(imbalance) + penalty
         - Lower score = better solution
         """
+        # Convert paths to dict format if needed (required by evaluate_solution)
+        if isinstance(self.paths, dict):
+            paths_dict = self.paths.copy()
+        else:
+            # Convert from list to dict format
+            paths_dict = {robot_id: path for robot_id, path in enumerate(self.paths)}
+        
+        # Ensure all paths are lists (not ints or other types)
+        for robot_id in paths_dict:
+            if not isinstance(paths_dict[robot_id], list):
+                paths_dict[robot_id] = [paths_dict[robot_id]] if paths_dict[robot_id] is not None else []
+        
+        # Convert all_cells to Cell objects if needed (required by evaluate_solution)
+        cells_as_objects = convert_cells_to_objects(self.all_cells)
+        
         # Get basic scores (coverage, balance, problems)
+        # Note: parameter order is: assignment, paths, all_cells, free_cells, obstacles, grid_width, grid_height
         results = evaluate_solution(
-            self.all_cells, self.free_cells, self.obstacles, 
-            self.assignment, self.paths, self.grid_width, self.grid_height
+            self.assignment, paths_dict, cells_as_objects, 
+            self.free_cells, self.obstacles, self.grid_width, self.grid_height
         )
         self.fitness = results
         
@@ -106,9 +146,8 @@ class RobotCoverageSolution:
                 penalty += penalty_factors['out_of_bounds']
             elif "hits obstacle" in violation:
                 penalty += penalty_factors['obstacle_collision']
-            elif "jumps from" in violation:
+            elif "jumps from" in violation.lower() or "jump from" in violation.lower():
                 penalty += penalty_factors['path_jump']
-        all_cells, free_cells, obstacles, grid_width, grid_height,
         return penalty
     
     def copy(self):
@@ -373,85 +412,39 @@ def mutate(solution, mutation_rate=0.1):
     """
     WHAT DOES THIS DO?
     - PATH-BASED MUTATION: Modifies robot paths directly
-    - Three types of mutations:
-      1. Swap two cells within same robot's path (path reordering)
-      2. Transfer a cell from one robot to another (workload balancing)
-      3. Insert a random unassigned cell into a robot's path (coverage improvement)
+    - Mutation Type: Swap two cells within same robot's path (path reordering)
+    - This mutation only changes the order of cells in a robot's path, not which cells are assigned
     """
     if random.random() > mutation_rate:
         return solution  # No mutation
     
     num_robots = len(solution.paths)
+    if num_robots == 0:
+        return solution  # No robots, can't mutate
     
-    # Choose mutation type randomly
-    mutation_type = random.choice(['swap_within_path', 'transfer_cell', 'insert_cell'])
+    # MUTATION: Swap two positions in a robot's path
+    # Find robots with paths of length >= 2 (need at least 2 cells to swap)
+    valid_robots = [r for r in range(num_robots) if len(solution.paths[r]) >= 2]
     
-    if mutation_type == 'swap_within_path':
-        # MUTATION TYPE 1: Swap two positions in a robot's path
-        robot_id = random.randint(0, num_robots - 1)
-        path = solution.paths[robot_id]
-        
-        if len(path) >= 2:
-            # Pick two random positions
-            pos1 = random.randint(0, len(path) - 1)
-            pos2 = random.randint(0, len(path) - 1)
-            
-            # Swap them
-            path[pos1], path[pos2] = path[pos2], path[pos1]
-            solution.paths[robot_id] = path
+    if not valid_robots:
+        return solution  # No valid robots to mutate
     
-    elif mutation_type == 'transfer_cell':
-        # MUTATION TYPE 2: Transfer a cell from one robot to another
-        robot1 = random.randint(0, num_robots - 1)
-        robot2 = random.randint(0, num_robots - 1)
-        
-        # Make sure they're different
-        while robot2 == robot1 and num_robots > 1:
-            robot2 = random.randint(0, num_robots - 1)
-        
-        path1 = solution.paths[robot1]
-        
-        if len(path1) > 0:
-            # Pick random cell from robot1's path
-            transfer_idx = random.randint(0, len(path1) - 1)
-            cell_to_transfer = path1[transfer_idx]
-            
-            # Remove from robot1
-            solution.paths[robot1] = [c for i, c in enumerate(path1) if i != transfer_idx]
-            
-            # Add to robot2
-            solution.paths[robot2].append(cell_to_transfer)
-            
-            # Update assignment matrix
-            solution.assignment[cell_to_transfer][robot1] = 0
-            solution.assignment[cell_to_transfer][robot2] = 1
+    # Pick a random robot with a valid path
+    robot_id = random.choice(valid_robots)
+    path = solution.paths[robot_id].copy()  # Create a copy to ensure mutation is detected
     
-    elif mutation_type == 'insert_cell':
-        # MUTATION TYPE 3: Insert an unassigned free cell into a random robot's path
-        # Find unassigned cells
-        assigned_cells = set()
-        for path in solution.paths.values():
-            assigned_cells.update(path)
-        
-        unassigned = [cell for cell in solution.free_cells if cell not in assigned_cells]
-        
-        if unassigned:
-            # Pick random unassigned cell
-            cell = random.choice(unassigned)
-            
-            # Pick random robot
-            robot_id = random.randint(0, num_robots - 1)
-            
-            # Insert at random position in path
-            path = solution.paths[robot_id]
-            insert_pos = random.randint(0, len(path))
-            path.insert(insert_pos, cell)
-            solution.paths[robot_id] = path
-            
-            # Update assignment matrix
-            solution.assignment[cell][robot_id] = 1
+    # Pick two random positions (ensure they're different)
+    pos1 = random.randint(0, len(path) - 1)
+    pos2 = random.randint(0, len(path) - 1)
+    # If same position, pick a different one
+    while pos2 == pos1 and len(path) > 1:
+        pos2 = random.randint(0, len(path) - 1)
     
-    return solution
+    # Swap the two positions
+    path[pos1], path[pos2] = path[pos2], path[pos1]
+    solution.paths[robot_id] = path  # Assign new list object
+    
+    return solution  # Mutation succeeded
 
 
 def mutate_path_swap(solution, mutation_rate=0.1):
@@ -533,7 +526,7 @@ def apply_elitism(population, new_population, elitism_count=2):
     return sorted_new_population
 
 def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height, num_robots,
-                      population_size=50, generations=100, crossover_rate=0.8, mutation_rate=0.1, 
+                      population_size=5, generations=100, crossover_rate=0.8, mutation_rate=0.1, 
                       elitism_count=2, verbose=True):
     """
     Genetic Algorithm for robot coverage problem
@@ -616,6 +609,9 @@ def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height,
             print(f"   🧬 Creating new population through selection, crossover, and mutation...")
         
         offspring_count = 0
+        # Track if we need to force at least one mutation this generation
+        mutations_needed = max(1, int(population_size * mutation_rate))  # Ensure at least 1 mutation
+        
         while len(new_population) < population_size:
             # Select parents using tournament selection
             parent1 = tournament_selection(population)
@@ -636,11 +632,27 @@ def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height,
                 if verbose and generation < 2 and offspring_count < 2:
                     print(f"         • ✂️  Order-Based Crossover applied!")
             
-            # Mutate child
-            child = mutate(child_before_mutation, mutation_rate)
+            # Save a deep copy of paths BEFORE mutation for comparison
+            import copy as copy_module
+            paths_before = copy_module.deepcopy(child_before_mutation.paths)
             
-            # ✅ Check if paths changed (not assignment)
-            did_mutate = (child.paths != child_before_mutation.paths)
+            # Mutate child - ensure we get at least minimum mutations per generation
+            remaining_individuals = population_size - offspring_count - 1  # -1 because we're about to add this one
+            mutations_still_needed = mutations_needed - gen_mutations
+            
+            # Force mutation if:
+            # 1. We haven't had any mutations yet and we're in the first 10% of population, OR
+            # 2. We need more mutations and don't have enough individuals left
+            if (gen_mutations == 0 and offspring_count < max(1, int(population_size * 0.1))) or \
+               (mutations_still_needed > 0 and remaining_individuals < mutations_still_needed):
+                # Force mutation to ensure we get at least the minimum number
+                child = mutate(child_before_mutation, mutation_rate=1.0)  # Force mutation
+            else:
+                child = mutate(child_before_mutation, mutation_rate)
+            
+            # ✅ Check if paths changed - compare saved copy with current paths
+            did_mutate = (paths_before != child.paths)
+            
             if did_mutate:
                 gen_mutations += 1
                 if verbose and generation < 2 and offspring_count < 2:
@@ -765,7 +777,8 @@ def print_ga_results(solution):
     print(f"Coverage Score: {solution.fitness['coverage_score']} cells covered")
     print(f"Balance Score: {solution.fitness['balance_score']:.3f} (lower = more balanced)")
     print(f"Combined Score: {solution.combined_score:.3f}")
-    print(f"Robot Distances: {solution.fitness['robot_distances']}")
+    print(f"Total Distance: {solution.fitness.get('total_distance', 0):.3f}")
+    print(f"Max Distance: {solution.fitness.get('max_distance', 0):.3f}")
     
     if solution.fitness['problems']:
         print(f"\nConstraint Violations: {len(solution.fitness['problems'])}")
@@ -780,8 +793,12 @@ def print_ga_results(solution):
         print(f"Cell {i}: Robot {robot_id}")
     
     print(f"\nRobot Paths:")
-    for robot_id, path in enumerate(solution.paths):
-        print(f"Robot {robot_id}: {path}")
+    if isinstance(solution.paths, dict):
+        for robot_id, path in solution.paths.items():
+            print(f"Robot {robot_id}: {path}")
+    else:
+        for robot_id, path in enumerate(solution.paths):
+            print(f"Robot {robot_id}: {path}")
 
 def test_ga_parameters(all_cells, free_cells, obstacles, grid_width, grid_height, num_robots, 
                        test_name="Parameter Sensitivity Test"):
@@ -820,7 +837,7 @@ def test_ga_parameters(all_cells, free_cells, obstacles, grid_width, grid_height
         print(f"  → Running with mutation_rate={mut_rate}...")
         solution, history = genetic_algorithm(
             all_cells, free_cells, obstacles, grid_width, grid_height, num_robots,
-            population_size=50, generations=50, crossover_rate=0.8, mutation_rate=mut_rate
+            population_size=5, generations=50, crossover_rate=0.8, mutation_rate=mut_rate
         )
         results[f'mut_{mut_rate}'] = {
             'solution': solution,
@@ -838,7 +855,7 @@ def test_ga_parameters(all_cells, free_cells, obstacles, grid_width, grid_height
         print(f"  → Running with crossover_rate={cross_rate}...")
         solution, history = genetic_algorithm(
             all_cells, free_cells, obstacles, grid_width, grid_height, num_robots,
-            population_size=50, generations=50, crossover_rate=cross_rate, mutation_rate=0.1
+            population_size=5, generations=50, crossover_rate=cross_rate, mutation_rate=0.1
         )
         results[f'cross_{cross_rate}'] = {
             'solution': solution,
@@ -856,7 +873,7 @@ def test_ga_parameters(all_cells, free_cells, obstacles, grid_width, grid_height
         print(f"  → Running with generations={gens}...")
         solution, history = genetic_algorithm(
             all_cells, free_cells, obstacles, grid_width, grid_height, num_robots,
-            population_size=50, generations=gens, crossover_rate=0.8, mutation_rate=0.1
+            population_size=5, generations=gens, crossover_rate=0.8, mutation_rate=0.1
         )
         results[f'gen_{gens}'] = {
             'solution': solution,
@@ -1015,10 +1032,118 @@ if __name__ == "__main__":
     print(f"Grid: {grid_width}x{grid_height}, Robots: {num_robots}")
     print(f"Total cells: {total_cells}, Free cells: {len(free_cells)}, Obstacles: {len(obstacles)}")
     
+###########################################################
+    # Test 1: Population Initialization
+    print("\n" + "="*60)
+    print("TEST 1: Population Initialization")
+    print("="*60)
+    
+    population = initialize_population(
+        population_size=5,  # Small size for testing
+        all_cells=all_cells,
+        free_cells=free_cells,
+        obstacles=obstacles,
+        grid_width=grid_width,
+        grid_height=grid_height,
+        num_robots=num_robots
+    )
+    
+    # Check results:
+    print(f"✓ Population size: {len(population)} (expected: 5)")
+    print(f"✓ All solutions evaluated: {all(sol.fitness is not None for sol in population)}")
+    
+    # Check diversity (solutions should be different)
+    path_sets = [set(sol.paths[0]) for sol in population if 0 in sol.paths]
+    unique_paths = len(set(tuple(sorted(p)) for p in path_sets))
+    print(f"✓ Solutions are diverse: {unique_paths} unique Robot 0 paths")
+    
+    # Print detailed information for ALL solutions
+    print("\n" + "-"*60)
+    print("DETAILED SOLUTION INFORMATION:")
+    print("-"*60)
+    
+    for idx, sol in enumerate(population):
+        print(f"\n🔹 SOLUTION {idx + 1}:")
+        print(f"   Paths:")
+        for robot_id in sorted(sol.paths.keys()):
+            path = sol.paths[robot_id]
+            print(f"      Robot {robot_id}: {path} (length: {len(path)})")
+        
+        # Show fitness evaluation details
+        fitness = sol.fitness
+        print(f"\n   Fitness Evaluation:")
+        print(f"      Coverage Score: {fitness['coverage_score']}/{len(free_cells)} cells")
+        print(f"         → This means {fitness['coverage_score']} out of {len(free_cells)} free cells are visited")
+        print(f"         → Coverage ratio: {fitness['coverage_score']/len(free_cells):.2%}")
+        
+        # Calculate robot distances for display
+        if isinstance(sol.paths, dict):
+            robot_distances = {}
+            for robot_id, path in sol.paths.items():
+                if len(path) > 1:
+                    total_dist = 0
+                    for i in range(len(path) - 1):
+                        cell1 = all_cells[path[i]]
+                        cell2 = all_cells[path[i + 1]]
+                        dist = abs(cell1[0] - cell2[0]) + abs(cell1[1] - cell2[1])  # Manhattan distance
+                        total_dist += dist
+                    robot_distances[robot_id] = total_dist
+                else:
+                    robot_distances[robot_id] = 0
+            
+            print(f"      Robot Distances: {robot_distances}")
+            print(f"         → Total distance: {sum(robot_distances.values()):.1f}")
+            print(f"         → Max distance: {max(robot_distances.values()) if robot_distances else 0:.1f}")
+            print(f"         → Balance Score (std dev): {fitness['balance_score']:.3f}")
+            print(f"            → Lower balance score = more balanced workloads")
+        
+        print(f"      Path Jumps: {fitness['path_jumps']} (non-adjacent moves)")
+        print(f"      Cell Conflicts: {fitness['cell_conflicts']} (cells assigned to multiple robots)")
+        print(f"      Violations: {len(fitness['problems'])} problems")
+        if fitness['problems']:
+            for problem in fitness['problems'][:3]:  # Show first 3 problems
+                print(f"         - {problem}")
+            if len(fitness['problems']) > 3:
+                print(f"         ... and {len(fitness['problems']) - 3} more")
+        
+        # Show how combined score is calculated
+        coverage_ratio = fitness['coverage_score'] / len(free_cells)
+        coverage_term = 1 - coverage_ratio  # Convert to minimization
+        imbalance_term = fitness['balance_score']
+        penalty_term = sol.calculate_penalty()
+        w1, w2 = (0.7, 0.3) if coverage_ratio < 1.0 else (0.5, 0.5)
+        
+        print(f"\n   Combined Score Calculation:")
+        print(f"      Coverage term: w1 × (1 - coverage) = {w1:.1f} × (1 - {coverage_ratio:.3f}) = {w1 * coverage_term:.3f}")
+        print(f"      Imbalance term: w2 × balance_score = {w2:.1f} × {imbalance_term:.3f} = {w2 * imbalance_term:.3f}")
+        print(f"      Penalty term: {penalty_term:.1f}")
+        print(f"      ─────────────────────────────────────────────")
+        print(f"      Combined Score: {sol.combined_score:.3f} (lower = better)")
+        print(f"         → Formula: J = {w1:.1f}(1-coverage) + {w2:.1f}(imbalance) + penalty")
+    
+    print("\n" + "="*60)
+    print("EXPLANATION:")
+    print("="*60)
+    print("Coverage 8/8 means:")
+    print("  • 8 = number of free cells visited by at least one robot")
+    print("  • 8 = total number of free cells in the grid")
+    print("  • 8/8 = 100% coverage (all free cells are covered)")
+    print("\nScore 2.750 means:")
+    print("  • This is the combined fitness score (lower is better)")
+    print("  • It combines: coverage (70%), balance (30%), and penalties")
+    print("  • Score = 0.7×(1-coverage) + 0.3×(imbalance) + penalties")
+    print("  • Even with 100% coverage, high score can come from:")
+    print("    - High imbalance (robots have very different workloads)")
+    print("    - Penalties (path jumps, constraint violations)")
+    print("="*60)
+    
+   
+    
+    #!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     # Run Genetic Algorithm
     best_solution, convergence_history = genetic_algorithm(
         all_cells, free_cells, obstacles, grid_width, grid_height, num_robots,
-        population_size=50, generations=50, crossover_rate=0.8, mutation_rate=0.1, elitism_count=2
+        population_size=5, generations=50, crossover_rate=0.8, mutation_rate=0.1, elitism_count=2
     )
     
     # Print detailed results
