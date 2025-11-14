@@ -374,16 +374,30 @@ def apply_elitism(population, new_population, elitism_count=2):
     return sorted_new_population
 
 def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height, num_robots,
-                      population_size=50, generations=100, crossover_rate=0.8, mutation_rate=0.1, elitism_count=2):
+                      population_size=50, generations=100, crossover_rate=0.8, mutation_rate=0.1, 
+                      elitism_count=2, verbose=True):
     """
     Genetic Algorithm for robot coverage problem
+    
+    Args:
+        verbose: If True, prints detailed logs of GA operations
     """
     
-    print(f"Starting Genetic Algorithm...")
-    print(f"Parameters: Population={population_size}, Generations={generations}, "
-          f"Crossover={crossover_rate}, Mutation={mutation_rate}")
+    print(f"\n{'='*70}")
+    print(f"🧬 STARTING GENETIC ALGORITHM")
+    print(f"{'='*70}")
+    print(f"📋 Parameters:")
+    print(f"   • Population Size:    {population_size}")
+    print(f"   • Generations:        {generations}")
+    print(f"   • Crossover Rate:     {crossover_rate}")
+    print(f"   • Mutation Rate:      {mutation_rate}")
+    print(f"   • Elitism Count:      {elitism_count}")
+    print(f"{'='*70}\n")
     
     # Step 1: Initialize population (generation 0)
+    print(f"🔄 STEP 1: Initializing Population (Generation 0)")
+    print(f"   Creating {population_size} random solutions...")
+    
     population = initialize_population(
         population_size, all_cells, free_cells, obstacles, grid_width, grid_height, num_robots
     )
@@ -393,46 +407,104 @@ def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height,
     best_solution = best_solution.copy()
     best_score = best_solution.combined_score if best_solution.combined_score is not None else float('inf')
     
-    if best_solution.fitness is not None:
-        print(f"Initial best solution: Coverage={best_solution.fitness['coverage_score']}, "
-              f"Balance={best_solution.fitness['balance_score']:.3f}, "
-              f"Combined={best_score:.3f}")
-    else:
-        print(f"Initial best solution: Combined={best_score:.3f}")
+    # Calculate initial statistics
+    initial_scores = [s.combined_score if s.combined_score is not None else float('inf') for s in population]
+    initial_avg = sum(initial_scores) / len(initial_scores)
+    initial_worst = max(initial_scores)
     
-    # ADD THIS: Track convergence history
+    print(f"   ✅ Population initialized!")
+    print(f"   📊 Initial Statistics:")
+    print(f"      • Best Score:     {best_score:.3f}")
+    print(f"      • Average Score:  {initial_avg:.3f}")
+    print(f"      • Worst Score:    {initial_worst:.3f}")
+    
+    if best_solution.fitness is not None:
+        print(f"      • Coverage:       {best_solution.fitness['coverage_score']}/{len(free_cells)} cells")
+        print(f"      • Balance:        {best_solution.fitness['balance_score']:.3f}")
+    print()
+    
+    # Track convergence history
     convergence_history = {
         'generation': [],
         'best_score': [],
         'avg_score': [],
         'worst_score': [],
         'best_coverage': [],
-        'best_balance': []
+        'best_balance': [],
+        'crossover_count': [],
+        'mutation_count': [],
+        'elite_preserved': []
     }
+    
+    # Counters for operations
+    total_crossovers = 0
+    total_mutations = 0
     
     # Main GA loop - evolve for multiple generations
     for generation in range(generations):
+        
+        if verbose and (generation % 10 == 0 or generation < 3):
+            print(f"\n{'─'*70}")
+            print(f"🔄 GENERATION {generation}")
+            print(f"{'─'*70}")
+        
         new_population = []
+        gen_crossovers = 0
+        gen_mutations = 0
         
         # Step 2: Create new generation
+        if verbose and generation < 3:
+            print(f"   🧬 Creating new population through selection, crossover, and mutation...")
+        
+        offspring_count = 0
         while len(new_population) < population_size:
             # Select parents using tournament selection
             parent1 = tournament_selection(population)
             parent2 = tournament_selection(population)
             
+            if verbose and generation < 2 and offspring_count < 2:
+                print(f"      Offspring {offspring_count + 1}:")
+                print(f"         • Selected Parent 1 (score: {parent1.combined_score:.3f})")
+                print(f"         • Selected Parent 2 (score: {parent2.combined_score:.3f})")
+            
             # Create child through crossover
-            child = crossover(parent1, parent2, crossover_rate)
+            child_before_mutation = crossover(parent1, parent2, crossover_rate)
+            did_crossover = (child_before_mutation.assignment != parent1.assignment)
+            if did_crossover:
+                gen_crossovers += 1
+                if verbose and generation < 2 and offspring_count < 2:
+                    print(f"         • ✂️  Crossover applied!")
             
             # Mutate child
-            child = mutate(child, mutation_rate)
+            child = mutate(child_before_mutation, mutation_rate)
+            did_mutate = (child.assignment != child_before_mutation.assignment)
+            if did_mutate:
+                gen_mutations += 1
+                if verbose and generation < 2 and offspring_count < 2:
+                    print(f"         • 🧪 Mutation applied!")
             
             # Evaluate child
             child.evaluate()
             
+            if verbose and generation < 2 and offspring_count < 2:
+                print(f"         • 📊 Child score: {child.combined_score:.3f}")
+            
             # Add to new population
             new_population.append(child)
+            offspring_count += 1
+        
+        total_crossovers += gen_crossovers
+        total_mutations += gen_mutations
+        
+        if verbose and generation < 3:
+            print(f"   📊 Generation {generation} Operations:")
+            print(f"      • Crossovers:  {gen_crossovers}/{population_size}")
+            print(f"      • Mutations:   {gen_mutations}/{population_size}")
         
         # Step 3: Apply elitism (keep best solutions)
+        if verbose and generation < 3:
+            print(f"   👑 Preserving top {elitism_count} elite solutions...")
+        
         new_population = apply_elitism(population, new_population, elitism_count)
         
         # Step 4: Update population
@@ -443,17 +515,29 @@ def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height,
         current_best_score = current_best.combined_score if current_best.combined_score is not None else float('inf')
         
         # Update global best if needed
+        improvement = False
         if current_best_score < best_score:
+            old_best = best_score
             best_solution = current_best.copy()
             best_score = current_best_score
+            improvement = True
+            
+            if verbose and generation % 10 == 0:
+                print(f"   🎉 NEW BEST SOLUTION FOUND!")
+                print(f"      • Old Best: {old_best:.3f}")
+                print(f"      • New Best: {best_score:.3f}")
+                print(f"      • Improvement: {old_best - best_score:.3f}")
         
-        # ADD THIS: Record metrics for this generation
+        # Record metrics for this generation
         scores = [sol.combined_score if sol.combined_score is not None else float('inf') 
                   for sol in population]
         convergence_history['generation'].append(generation)
         convergence_history['best_score'].append(min(scores))
         convergence_history['avg_score'].append(sum(scores) / len(scores))
         convergence_history['worst_score'].append(max(scores))
+        convergence_history['crossover_count'].append(gen_crossovers)
+        convergence_history['mutation_count'].append(gen_mutations)
+        convergence_history['elite_preserved'].append(elitism_count)
         
         if best_solution.fitness:
             convergence_history['best_coverage'].append(best_solution.fitness['coverage_score'])
@@ -462,28 +546,42 @@ def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height,
             convergence_history['best_coverage'].append(0)
             convergence_history['best_balance'].append(float('inf'))
         
-        # Print progress every 10 generations
+        # Print progress
         if generation % 10 == 0 or generation == generations - 1:
-            valid_scores = [s.combined_score for s in population if s.combined_score is not None]
+            valid_scores = [s for s in scores if s != float('inf')]
             avg_score = sum(valid_scores) / len(valid_scores) if valid_scores else 0
-            print(f"Generation {generation}: Best={best_score:.3f}, "
-                  f"Current Best={current_best_score:.3f}, "
-                  f"Average={avg_score:.3f}")
+            
+            status_symbol = "🎉" if improvement else "📊"
+            print(f"\n   {status_symbol} Generation {generation} Summary:")
+            print(f"      • Best Score:     {best_score:.3f}")
+            print(f"      • Current Best:   {current_best_score:.3f}")
+            print(f"      • Average:        {avg_score:.3f}")
+            print(f"      • Worst:          {max(scores):.3f}")
+            if best_solution.fitness:
+                print(f"      • Coverage:       {best_solution.fitness['coverage_score']}/{len(free_cells)} cells")
+                print(f"      • Balance:        {best_solution.fitness['balance_score']:.3f}")
     
-    print(f"\nGA Complete!")
+    # Final summary
+    print(f"\n{'='*70}")
+    print(f"✅ GENETIC ALGORITHM COMPLETE!")
+    print(f"{'='*70}")
+    print(f"📊 Final Statistics:")
+    print(f"   • Total Generations:      {generations}")
+    print(f"   • Total Crossovers:       {total_crossovers}")
+    print(f"   • Total Mutations:        {total_mutations}")
+    print(f"   • Best Score Achieved:    {best_score:.3f}")
+    
+    if best_solution.fitness is not None:
+        print(f"   • Final Coverage:         {best_solution.fitness['coverage_score']}/{len(free_cells)} cells ({best_solution.fitness['coverage_score']/len(free_cells)*100:.1f}%)")
+        print(f"   • Final Balance:          {best_solution.fitness['balance_score']:.3f}")
+        print(f"   • Constraint Violations:  {len(best_solution.fitness['problems'])}")
+    
+    print(f"{'='*70}\n")
     
     # Ensure best solution is evaluated
     if best_solution.fitness is None:
         best_solution.evaluate()
     
-    if best_solution.fitness is not None:
-        print(f"Best solution: Coverage={best_solution.fitness['coverage_score']}, "
-              f"Balance={best_solution.fitness['balance_score']:.3f}, "
-              f"Combined={best_solution.combined_score:.3f}")
-    else:
-        print("Best solution evaluation failed")
-    
-    # MODIFY RETURN: Include convergence history
     return best_solution, convergence_history
 
 def print_ga_results(solution):
