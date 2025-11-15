@@ -58,7 +58,7 @@ def safe_format_score(score, decimals=3):
 class Cell:
     def __init__(self, x, y):
         self.x = x
-        self.y
+        self.y = y
     
     def __repr__(self):
         return f"Cell({self.x}, {self.y})"
@@ -2315,7 +2315,10 @@ HOW ONE GENERATION WORKS:
 
 2. FOR EACH GENERATION:
    a) Selection: Pick parents using tournament selection
-   b) Crossover: Combine parents to create child
+# Find lines 2318-2346 and replace with:
+
+# filepath: /Users/hagarelgazzar/Desktop/Optimization_ms_3/optimization-1/GA.py
+b) Crossover: Combine parents to create child
    c) Mutation: Randomly modify child
    d) Evaluation: Calculate child's fitness
    e) Add to new population
@@ -2336,10 +2339,18 @@ HOW ONE GENERATION WORKS:
     
     #!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     # Run Genetic Algorithm
-    best_solution, convergence_history = genetic_algorithm(
+    ga_results = genetic_algorithm(
         all_cells, free_cells, obstacles, grid_width, grid_height, num_robots,
-        population_size=5, generations=50, crossover_rate=0.8, mutation_rate=0.1, elitism_count=2
+        population_size=5, generations=50, crossover_rate=0.8, mutation_rate=0.1, 
+        elitism_count=2, verbose=True
     )
     
+    # Extract results
+    best_solution = ga_results['best_solution']
+    convergence_history = ga_results['convergence_history']
+    
     # Print detailed results
-    print_ga_results(best_solution)
+    print_solution_summary(best_solution)
+    
+    # Plot convergence
+    # analyze_convergence(convergence_history)
