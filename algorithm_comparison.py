@@ -165,3 +165,249 @@ def compare_sa_vs_ga(all_cells, free_cells, obstacles, grid_width, grid_height, 
         print(f"⚠️  Could not plot convergence: {e}")
     
     return sa_solution, ga_solution, sa_history, ga_history
+
+def generate_comparison_report(sa_results, ga_results, case_study_name="Comparison"):
+    """
+    Generate a comprehensive comparison report between SA and GA results
+    
+    Args:
+        sa_results: Tuple or dict with (sa_solution, sa_history) or {'best_solution': ..., 'convergence_history': ...}
+        ga_results: Tuple or dict with (ga_solution, ga_history) or {'best_solution': ..., 'convergence_history': ...}
+        case_study_name: Name of the case study
+    
+    Returns:
+        Dictionary with comparison metrics
+    """
+    # Handle different input formats
+    if isinstance(sa_results, tuple):
+        sa_solution, sa_history = sa_results
+    elif isinstance(sa_results, dict):
+        sa_solution = sa_results.get('best_solution')
+        sa_history = sa_results.get('convergence_history', {})
+    else:
+        sa_solution = sa_results
+        sa_history = {}
+    
+    if isinstance(ga_results, tuple):
+        ga_solution, ga_history = ga_results
+    elif isinstance(ga_results, dict):
+        ga_solution = ga_results.get('best_solution')
+        ga_history = ga_results.get('convergence_history', {})
+    else:
+        ga_solution = ga_results
+        ga_history = {}
+    
+    print(f"\n{'='*80}")
+    print(f"ALGORITHM COMPARISON REPORT - {case_study_name}")
+    print(f"{'='*80}\n")
+    
+    # Performance Index 1: Solution Quality (Combined Score)
+    print("📊 PERFORMANCE INDEX 1: SOLUTION QUALITY (Combined Score)")
+    print("-" * 80)
+    
+    sa_score = sa_solution.combined_score if sa_solution and hasattr(sa_solution, 'combined_score') else float('inf')
+    ga_score = ga_solution.combined_score if ga_solution and hasattr(ga_solution, 'combined_score') else float('inf')
+    
+    print(f"SA Final Score:  {sa_score:.4f}")
+    print(f"GA Final Score:  {ga_score:.4f}")
+    
+    if sa_score < ga_score:
+        improvement = ((ga_score - sa_score) / ga_score) * 100 if ga_score != 0 else 0
+        print(f"✅ SA performs better by {improvement:.2f}%")
+        winner_quality = "SA"
+    elif ga_score < sa_score:
+        improvement = ((sa_score - ga_score) / sa_score) * 100 if sa_score != 0 else 0
+        print(f"✅ GA performs better by {improvement:.2f}%")
+        winner_quality = "GA"
+    else:
+        print("🤝 Tie - Both algorithms achieved the same score")
+        winner_quality = "TIE"
+    
+    # Performance Index 2: Coverage Efficiency
+    print(f"\n📊 PERFORMANCE INDEX 2: COVERAGE EFFICIENCY")
+    print("-" * 80)
+    
+    sa_coverage = sa_solution.get_coverage_efficiency() if sa_solution and hasattr(sa_solution, 'get_coverage_efficiency') else 0
+    ga_coverage = ga_solution.get_coverage_efficiency() if ga_solution and hasattr(ga_solution, 'get_coverage_efficiency') else 0
+    
+    print(f"SA Coverage:  {sa_coverage:.2f}%")
+    print(f"GA Coverage:  {ga_coverage:.2f}%")
+    
+    if sa_coverage > ga_coverage:
+        winner_coverage = "SA"
+        print(f"✅ SA has better coverage (+{sa_coverage - ga_coverage:.2f}%)")
+    elif ga_coverage > sa_coverage:
+        winner_coverage = "GA"
+        print(f"✅ GA has better coverage (+{ga_coverage - sa_coverage:.2f}%)")
+    else:
+        winner_coverage = "TIE"
+        print("🤝 Tie - Both achieved same coverage")
+    
+    # Performance Index 3: Workload Balance
+    print(f"\n📊 PERFORMANCE INDEX 3: WORKLOAD BALANCE INDEX")
+    print("-" * 80)
+    
+    sa_balance = sa_solution.get_workload_balance_index() if sa_solution and hasattr(sa_solution, 'get_workload_balance_index') else float('inf')
+    ga_balance = ga_solution.get_workload_balance_index() if ga_solution and hasattr(ga_solution, 'get_workload_balance_index') else float('inf')
+    
+    print(f"SA Balance Index:  {sa_balance:.4f} (higher = better)")
+    print(f"GA Balance Index:  {ga_balance:.4f} (higher = better)")
+    
+    if sa_balance > ga_balance:
+        winner_balance = "SA"
+        print(f"✅ SA has better workload balance")
+    elif ga_balance > sa_balance:
+        winner_balance = "GA"
+        print(f"✅ GA has better workload balance")
+    else:
+        winner_balance = "TIE"
+        print("🤝 Tie - Both have same balance")
+    
+    # Performance Index 4: Convergence Speed
+    print(f"\n📊 PERFORMANCE INDEX 4: CONVERGENCE SPEED")
+    print("-" * 80)
+    
+    # Convert SA history if needed
+    sa_history_std = convert_sa_history_to_standard(sa_history) if sa_history else {}
+    
+    # Find convergence point (when 95% of improvement achieved)
+    def find_convergence_point(history, final_score):
+        if not history or 'best_score' not in history or len(history['best_score']) == 0:
+            return -1
+        
+        initial_score = history['best_score'][0]
+        if initial_score == final_score:
+            return 0
+        
+        threshold = initial_score - 0.95 * (initial_score - final_score)
+        
+        for i, score in enumerate(history['best_score']):
+            if score <= threshold:
+                return i
+        return len(history['best_score']) - 1
+    
+    sa_conv_point = find_convergence_point(sa_history_std, sa_score)
+    ga_conv_point = find_convergence_point(ga_history, ga_score)
+    
+    print(f"SA converged at iteration: {sa_conv_point if sa_conv_point >= 0 else 'N/A'}")
+    print(f"GA converged at generation: {ga_conv_point if ga_conv_point >= 0 else 'N/A'}")
+    
+    if sa_conv_point >= 0 and ga_conv_point >= 0:
+        if sa_conv_point < ga_conv_point:
+            winner_convergence = "SA"
+            print(f"✅ SA converged faster ({ga_conv_point - sa_conv_point} iterations earlier)")
+        elif ga_conv_point < sa_conv_point:
+            winner_convergence = "GA"
+            print(f"✅ GA converged faster ({sa_conv_point - ga_conv_point} iterations earlier)")
+        else:
+            winner_convergence = "TIE"
+            print("🤝 Tie - Both converged at same rate")
+    else:
+        winner_convergence = "N/A"
+        print("⚠️  Convergence comparison not available")
+    
+    # Overall Summary
+    print(f"\n{'='*80}")
+    print("OVERALL SUMMARY")
+    print(f"{'='*80}")
+    
+    scores = {
+        'SA': sum([
+            winner_quality == "SA",
+            winner_coverage == "SA",
+            winner_balance == "SA",
+            winner_convergence == "SA"
+        ]),
+        'GA': sum([
+            winner_quality == "GA",
+            winner_coverage == "GA",
+            winner_balance == "GA",
+            winner_convergence == "GA"
+        ])
+    }
+    
+    print(f"SA wins: {scores['SA']}/4 metrics")
+    print(f"GA wins: {scores['GA']}/4 metrics")
+    
+    if scores['SA'] > scores['GA']:
+        overall_winner = "SA"
+    elif scores['GA'] > scores['SA']:
+        overall_winner = "GA"
+    else:
+        overall_winner = "TIE"
+    
+    print(f"\n🏆 Overall Winner: {overall_winner}")
+    print(f"{'='*80}\n")
+    
+    # Return comparison dictionary
+    return {
+        'case_study': case_study_name,
+        'sa_score': sa_score,
+        'ga_score': ga_score,
+        'sa_coverage': sa_coverage,
+        'ga_coverage': ga_coverage,
+        'sa_balance': sa_balance,
+        'ga_balance': ga_balance,
+        'sa_convergence_point': sa_conv_point,
+        'ga_convergence_point': ga_conv_point,
+        'winner_quality': winner_quality,
+        'winner_coverage': winner_coverage,
+        'winner_balance': winner_balance,
+        'winner_convergence': winner_convergence,
+        'overall_winner': overall_winner,
+        'sa_wins': scores['SA'],
+        'ga_wins': scores['GA']
+    }
+
+
+def plot_sa_vs_ga_convergence(sa_history, ga_history, save_path=None):
+    """
+    Plot convergence comparison between SA and GA
+    
+    Args:
+        sa_history: SA convergence history
+        ga_history: GA convergence history
+        save_path: Optional path to save figure
+    """
+    # Convert SA history to standard format
+    sa_history = convert_sa_history_to_standard(sa_history)
+    
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
+    
+    # Plot 1: Best scores comparison
+    ax1.plot(sa_history['generation'], sa_history['best_score'], 
+            'r-o', label='SA', linewidth=2, markersize=4)
+    ax1.plot(ga_history['generation'], ga_history['best_score'], 
+            'b-s', label='GA', linewidth=2, markersize=4)
+    ax1.set_xlabel('Iteration/Generation', fontsize=12)
+    ax1.set_ylabel('Best Score (lower = better)', fontsize=12)
+    ax1.set_title('Convergence Comparison: SA vs GA', fontsize=14, fontweight='bold')
+    ax1.legend(fontsize=11)
+    ax1.grid(True, alpha=0.3)
+    
+    # Plot 2: Improvement percentage
+    sa_initial = sa_history['best_score'][0] if sa_history['best_score'] else 1
+    ga_initial = ga_history['best_score'][0] if ga_history['best_score'] else 1
+    
+    sa_improvement = [(sa_initial - score) / sa_initial * 100 for score in sa_history['best_score']]
+    ga_improvement = [(ga_initial - score) / ga_initial * 100 for score in ga_history['best_score']]
+    
+    ax2.plot(sa_history['generation'], sa_improvement, 
+            'r-o', label='SA', linewidth=2, markersize=4)
+    ax2.plot(ga_history['generation'], ga_improvement, 
+            'b-s', label='GA', linewidth=2, markersize=4)
+    ax2.set_xlabel('Iteration/Generation', fontsize=12)
+    ax2.set_ylabel('Improvement from Initial (%)', fontsize=12)
+    ax2.set_title('Improvement Rate Comparison', fontsize=14, fontweight='bold')
+    ax2.legend(fontsize=11)
+    ax2.grid(True, alpha=0.3)
+    
+    plt.tight_layout()
+    
+    if save_path:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        print(f"✅ Comparison plot saved to {save_path}")
+    else:
+        plt.show()
+    
+    plt.close()

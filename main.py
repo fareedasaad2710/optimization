@@ -132,6 +132,65 @@ def algorithm_validation():
     else:
         print(f"✗ FAIL: Poor workload balance ({balance_score:.3f})")
 
+
+def plot_solution_on_axis(ax, solution, grid_width, grid_height):
+    """
+    Plot solution on existing axis (for live plotting)
+    
+    Args:
+        ax: Matplotlib axis object
+        solution: RobotCoverageSolution object
+        grid_width: Grid width
+        grid_height: Grid height
+    """
+    import matplotlib.patches as mpatches
+    
+    # Draw grid
+    for x in range(grid_width + 1):
+        ax.axvline(x, color='black', linewidth=0.5)
+    for y in range(grid_height + 1):
+        ax.axhline(y, color='black', linewidth=0.5)
+    
+    # Draw obstacles
+    for obs_idx in solution.obstacles:
+        x = obs_idx % grid_width
+        y = obs_idx // grid_width
+        rect = mpatches.Rectangle((x, y), 1, 1, linewidth=1, 
+                                edgecolor='black', facecolor='gray', alpha=0.7)
+        ax.add_patch(rect)
+    
+    # Define colors
+    colors = ['red', 'blue', 'green', 'orange', 'purple', 'cyan', 'magenta', 'yellow']
+    
+    # Draw robot paths
+    for robot_id, path in solution.paths.items():
+        if len(path) == 0:
+            continue
+        
+        color = colors[robot_id % len(colors)]
+        
+        # Convert to coordinates
+        coords = [(cell_idx % grid_width + 0.5, cell_idx // grid_width + 0.5) 
+                  for cell_idx in path]
+        
+        # Draw path
+        if len(coords) > 1:
+            xs, ys = zip(*coords)
+            ax.plot(xs, ys, color=color, linewidth=2, marker='o', 
+                   markersize=6, alpha=0.7, label=f'R{robot_id}')
+        
+        # Mark start
+        if coords:
+            ax.plot(coords[0][0], coords[0][1], 'o', color=color, 
+                   markersize=10, markeredgecolor='black', markeredgewidth=2)
+    
+    ax.set_xlim(0, grid_width)
+    ax.set_ylim(0, grid_height)
+    ax.set_aspect('equal')
+    ax.legend(loc='upper right', fontsize=8)
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+
 def main():
     """Main execution function"""
     parser = argparse.ArgumentParser(description='Multi-Robot Coverage Path Planning with SA')
@@ -167,6 +226,6 @@ def main():
         
         print("\nTo generate visualizations, run: python main.py --visualize")
         print("To validate algorithm, run: python main.py --validate")
-
-if __name__ == "__main__":
-    main()
+    
+    # Run GA
+    results

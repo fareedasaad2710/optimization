@@ -25,29 +25,47 @@ import math
 import random
 import copy
 from problem_formulation import *
+from visualization import (
+    plot_convergence_history,
+    plot_robot_paths,
+    plot_coverage_heatmap,
+    save_all_figures
+)
 
 # Simple Cell class to match problem_formulation.py expectations
 class Cell:
     def __init__(self, x, y):
         self.x = x
         self.y = y
+    
+    def __repr__(self):
+        return f"Cell({self.x}, {self.y})"
+    
+    def __eq__(self, other):
+        if isinstance(other, Cell):
+            return self.x == other.x and self.y == other.y
+        return False
+    
+    def __hash__(self):
+        return hash((self.x, self.y))
+
 
 def convert_cells_to_objects(all_cells):
     """Convert tuple cells to Cell objects if needed"""
     if len(all_cells) == 0:
-        return all_cells
+        return []
+    
     # Check if first cell is already a Cell object
     if hasattr(all_cells[0], 'x') and hasattr(all_cells[0], 'y'):
         return all_cells
+    
     # Convert tuples to Cell objects
     result = []
     for cell in all_cells:
         if isinstance(cell, tuple):
             result.append(Cell(cell[0], cell[1]))
-        elif hasattr(cell, 'x') and hasattr(cell, 'y'):
-            result.append(cell)
         else:
-            result.append(cell)  # Keep as is if unknown format
+            result.append(cell)
     return result
 
 class RobotCoverageSolution:
@@ -1052,7 +1070,94 @@ def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height,
     if best_solution.fitness is None:
         best_solution.evaluate()
     
-    return best_solution, convergence_history
+    # After the main GA loop ends
+    print("\n" + "="*80)
+    print("📊 GENERATING VISUALIZATIONS")
+    print("="*80)
+
+    # 1. Plot convergence history
+    plot_convergence_history(
+        convergence_history,
+        title=f"GA Convergence - Pop: {population_size}, Gen: {generations}",
+        save_path="results/figures/ga_convergence.png"
+    )
+
+    # 2. Visualize best solution's robot paths
+    if best_solution.fitness:
+        plot_robot_paths(
+            best_solution,
+            grid_size=(grid_rows, grid_cols),
+            title=f"Best Solution - Score: {best_score:.3f}",
+            save_path="results/figures/ga_best_solution.png"
+        )
+        
+        # 3. Plot coverage heatmap
+        plot_coverage_heatmap(
+            best_solution,
+            grid_size=(grid_rows, grid_cols),
+            title="Coverage Distribution",
+            save_path="results/figures/ga_coverage_heatmap.png"
+        )
+
+    # 4. Plot GA-specific metrics
+    import matplotlib.pyplot as plt
+
+    fig, axes = plt.subplots(2, 2, figsize=(15, 10))
+
+    # Plot crossover and mutation counts
+    axes[0, 0].plot(convergence_history['generation'], 
+                    convergence_history['crossover_count'], 
+                    label='Crossovers', marker='o')
+    axes[0, 0].plot(convergence_history['generation'], 
+                    convergence_history['mutation_count'], 
+                    label='Mutations', marker='s')
+    axes[0, 0].set_xlabel('Generation')
+    axes[0, 0].set_ylabel('Count')
+    axes[0, 0].set_title('Genetic Operations per Generation')
+    axes[0, 0].legend()
+    axes[0, 0].grid(True, alpha=0.3)
+
+    # Plot elite preservation
+    axes[0, 1].plot(convergence_history['generation'], 
+                    convergence_history['elite_preserved'], 
+                    color='purple', marker='D')
+    axes[0, 1].set_xlabel('Generation')
+    axes[0, 1].set_ylabel('Elite Count')
+    axes[0, 1].set_title('Elite Solutions Preserved')
+    axes[0, 1].grid(True, alpha=0.3)
+
+    # Plot coverage and balance scores
+    axes[1, 0].plot(convergence_history['generation'], 
+                    convergence_history['best_coverage'], 
+                    label='Coverage', color='green', marker='o')
+    axes[1, 0].set_xlabel('Generation')
+    axes[1, 0].set_ylabel('Coverage Score')
+    axes[1, 0].set_title('Best Coverage Score Evolution')
+    axes[1, 0].legend()
+    axes[1, 0].grid(True, alpha=0.3)
+
+    axes[1, 1].plot(convergence_history['generation'], 
+                    convergence_history['best_balance'], 
+                    label='Balance', color='orange', marker='s')
+    axes[1, 1].set_xlabel('Generation')
+    axes[1, 1].set_ylabel('Balance Score')
+    axes[1, 1].set_title('Best Balance Score Evolution')
+    axes[1, 1].legend()
+    axes[1, 1].grid(True, alpha=0.3)
+
+    plt.tight_layout()
+    plt.savefig("results/figures/ga_metrics.png", dpi=300, bbox_inches='tight')
+    plt.close()
+
+    print("✅ All visualizations saved to results/figures/")
+
+    # Return results with convergence history
+    return {
+        'best_solution': best_solution,
+        'best_score': best_score,
+        'convergence_history': convergence_history,
+        'final_population': population
+    }
 
 def print_ga_results(solution):
     """
