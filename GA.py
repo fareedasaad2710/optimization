@@ -32,11 +32,33 @@ from visualization import (
     save_all_figures
 )
 
+# Add this helper function after imports
+def safe_format_score(score, decimals=3):
+    """
+    Safely format a score value, handling None and inf
+    
+    Args:
+        score: Score value (can be None, inf, or float)
+        decimals: Number of decimal places
+    
+    Returns:
+        Formatted string
+    """
+    if score is None:
+        return "N/A"
+    elif score == float('inf'):
+        return "inf"
+    elif score == float('-inf'):
+        return "-inf"
+    else:
+        return f"{score:.{decimals}f}"
+
+
 # Simple Cell class to match problem_formulation.py expectations
 class Cell:
     def __init__(self, x, y):
         self.x = x
-        self.y = y
+        self.y
     
     def __repr__(self):
         return f"Cell({self.x}, {self.y})"
@@ -818,9 +840,9 @@ def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height,
     
     print(f"   ✅ Population initialized!")
     print(f"   📊 Initial Statistics:")
-    print(f"      • Best Score:     {best_score:.3f}")
-    print(f"      • Average Score:  {initial_avg:.3f}")
-    print(f"      • Worst Score:    {initial_worst:.3f}")
+    print(f"      • Best Score:     {safe_format_score(best_score)}")
+    print(f"      • Average Score:  {safe_format_score(initial_avg)}")
+    print(f"      • Worst Score:    {safe_format_score(initial_worst)}")
     
     if best_solution.fitness is not None:
         print(f"      • Coverage:       {best_solution.fitness['coverage_score']}/{len(free_cells)} cells")
@@ -886,7 +908,7 @@ def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height,
             new_population.append(elite_solution.copy())
             gen_selections += 1
             if verbose and generation < 2 and i < 2:
-                print(f"      Selection {i+1} (Elitism): Copied {i+1}-th best solution (score: {elite_solution.combined_score:.3f})")
+                print(f"      Selection {i+1} (Elitism): Copied {i+1}-th best solution (score: {safe_format_score(elite_solution.combined_score)})")
         
         # 2. CROSSOVER (80%): Create offspring through crossover
         for i in range(num_crossover):
@@ -896,8 +918,8 @@ def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height,
             
             if verbose and generation < 2 and i < 2:
                 print(f"      Crossover {i+1}:")
-                print(f"         • Parent 1 (score: {parent1.combined_score:.3f})")
-                print(f"         • Parent 2 (score: {parent2.combined_score:.3f})")
+                print(f"         • Parent 1 (score: {safe_format_score(parent1.combined_score)})")
+                print(f"         • Parent 2 (score: {safe_format_score(parent2.combined_score)})")
             
             # Create child through crossover (randomly: assignment or path)
             child = apply_crossover(parent1, parent2, crossover_rate)
@@ -928,7 +950,7 @@ def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height,
             child.evaluate()
             
             if verbose and generation < 2 and i < 2:
-                print(f"         • 📊 Child score: {child.combined_score:.3f}")
+                print(f"         • 📊 Child score: {safe_format_score(child.combined_score)}")
             
             # Add to new population
             new_population.append(child)
@@ -956,7 +978,7 @@ def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height,
                 gen_mutations += 1
                 if verbose and generation < 2 and i < 2:
                     print(f"      Mutation {i+1}:")
-                    print(f"         • Selected: {i+1}-th worst solution (score: {worst_solution.combined_score:.3f})")
+                    print(f"         • Selected: {i+1}-th worst solution (score: {safe_format_score(worst_solution.combined_score)})")
                     print(f"         • Random robot selected: Robot {robot_id}")
                     print(f"         • Robot {robot_id} path before: {paths_before.get(robot_id, [])}")
                     print(f"         • Robot {robot_id} path after:  {mutated.paths.get(robot_id, [])}")
@@ -971,7 +993,7 @@ def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height,
                         gen_mutations += 1
                         if verbose and generation < 2 and i < 2:
                             print(f"      Mutation {i+1}:")
-                            print(f"         • Selected: {i+1}-th worst solution (score: {worst_solution.combined_score:.3f})")
+                            print(f"         • Selected: {i+1}-th worst solution (score: {safe_format_score(worst_solution.combined_score)})")
                             print(f"         • Robot {robot_id} path mutated (original robot had path length <= 2)")
                             print(f"         • 🧪 Mutation applied!")
             
@@ -979,7 +1001,7 @@ def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height,
             mutated.evaluate()
             
             if verbose and generation < 2 and i < 2:
-                print(f"         • 📊 Mutated score: {mutated.combined_score:.3f}")
+                print(f"         • 📊 Mutated score: {safe_format_score(mutated.combined_score)}")
             
             # Add to new population
             new_population.append(mutated)
@@ -1011,9 +1033,9 @@ def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height,
             
             if verbose and generation % 10 == 0:
                 print(f"   🎉 NEW BEST SOLUTION FOUND!")
-                print(f"      • Old Best: {old_best:.3f}")
-                print(f"      • New Best: {best_score:.3f}")
-                print(f"      • Improvement: {old_best - best_score:.3f}")
+                print(f"      • Old Best: {safe_format_score(old_best)}")
+                print(f"      • New Best: {safe_format_score(best_score)}")
+                print(f"      • Improvement: {safe_format_score(old_best - best_score)}")
         
         # Record metrics for this generation
         scores = [sol.combined_score if sol.combined_score is not None else float('inf') 
@@ -1040,10 +1062,10 @@ def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height,
             
             status_symbol = "🎉" if improvement else "📊"
             print(f"\n   {status_symbol} Generation {generation} Summary:")
-            print(f"      • Best Score:     {best_score:.3f}")
-            print(f"      • Current Best:   {current_best_score:.3f}")
-            print(f"      • Average:        {avg_score:.3f}")
-            print(f"      • Worst:          {max(scores):.3f}")
+            print(f"      • Best Score:     {safe_format_score(best_score)}")
+            print(f"      • Current Best:   {safe_format_score(current_best_score)}")
+            print(f"      • Average:        {safe_format_score(avg_score)}")
+            print(f"      • Worst:          {safe_format_score(max(scores))}")
             if best_solution.fitness:
                 print(f"      • Coverage:       {best_solution.fitness['coverage_score']}/{len(free_cells)} cells")
                 print(f"      • Balance:        {best_solution.fitness['balance_score']:.3f}")
@@ -1057,7 +1079,7 @@ def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height,
     print(f"   • Total Selections:        {total_selections} (10% per generation - Elitism)")
     print(f"   • Total Crossovers:        {total_crossovers} (80% per generation)")
     print(f"   • Total Mutations:         {total_mutations} (10% per generation)")
-    print(f"   • Best Score Achieved:     {best_score:.3f}")
+    print(f"   • Best Score Achieved:     {safe_format_score(best_score)}")
     
     if best_solution.fitness is not None:
         print(f"   • Final Coverage:         {best_solution.fitness['coverage_score']}/{len(free_cells)} cells ({best_solution.fitness['coverage_score']/len(free_cells)*100:.1f}%)")
@@ -1087,7 +1109,7 @@ def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height,
         plot_robot_paths(
             best_solution,
             grid_size=(grid_rows, grid_cols),
-            title=f"Best Solution - Score: {best_score:.3f}",
+            title=f"Best Solution - Score: {safe_format_score(best_score)}",
             save_path="results/figures/ga_best_solution.png"
         )
         
@@ -1176,7 +1198,7 @@ def print_ga_results(solution):
     
     print(f"Coverage Score: {solution.fitness['coverage_score']} cells covered")
     print(f"Balance Score: {solution.fitness['balance_score']:.3f} (lower = more balanced)")
-    print(f"Combined Score: {solution.combined_score:.3f}")
+    print(f"Combined Score: {safe_format_score(solution.combined_score)}")
     print(f"Total Distance: {solution.fitness.get('total_distance', 0):.3f}")
     print(f"Max Distance: {solution.fitness.get('max_distance', 0):.3f}")
     
@@ -1228,7 +1250,7 @@ def test_ga_parameters(all_cells, free_cells, obstacles, grid_width, grid_height
             'parameter': 'population_size',
             'value': pop_size
         }
-        print(f"     ✓ Best Score: {solution.combined_score:.4f}")
+        print(f"     ✓ Best Score: {safe_format_score(solution.combined_score)}")
     
     # Test 2: Mutation Rate Effect
     print("\n[TEST 2/4] Mutation Rate Effect")
@@ -1246,7 +1268,7 @@ def test_ga_parameters(all_cells, free_cells, obstacles, grid_width, grid_height
             'parameter': 'mutation_rate',
             'value': mut_rate
         }
-        print(f"     ✓ Best Score: {solution.combined_score:.4f}")
+        print(f"     ✓ Best Score: {safe_format_score(solution.combined_score)}")
     
     # Test 3: Crossover Rate Effect
     print("\n[TEST 3/4] Crossover Rate Effect")
@@ -1264,7 +1286,7 @@ def test_ga_parameters(all_cells, free_cells, obstacles, grid_width, grid_height
             'parameter': 'crossover_rate',
             'value': cross_rate
         }
-        print(f"     ✓ Best Score: {solution.combined_score:.4f}")
+        print(f"     ✓ Best Score: {safe_format_score(solution.combined_score)}")
     
     # Test 4: Generation Count Effect
     print("\n[TEST 4/4] Generation Count Effect")
@@ -1282,7 +1304,7 @@ def test_ga_parameters(all_cells, free_cells, obstacles, grid_width, grid_height
             'parameter': 'generations',
             'value': gens
         }
-        print(f"     ✓ Best Score: {solution.combined_score:.4f}")
+        print(f"     ✓ Best Score: {safe_format_score(solution.combined_score)}")
     
     print(f"\n{'='*70}")
     print("PARAMETER TESTING COMPLETE!")
@@ -1345,7 +1367,7 @@ def print_solution_summary(solution, convergence_history=None, algorithm_name="G
     print(f"  • Workload Balance Index:       {metrics['workload_balance_index']:.4f}")
     print(f"  • Constraint Satisfaction:      {metrics['constraint_satisfaction_rate']:.2%}")
     print(f"  • Solution Quality Index:       {metrics['solution_quality_index']:.4f}")
-    print(f"  • Combined Score (minimize):    {metrics['combined_score']:.4f}")
+    print(f"  • Combined Score (minimize):    {safe_format_score(metrics['combined_score'])}")
     
     print(f"\n📈 RAW SCORES:")
     print(f"  • Coverage:                     {metrics['cells_covered']}/{metrics['total_free_cells']} cells")
@@ -1356,9 +1378,9 @@ def print_solution_summary(solution, convergence_history=None, algorithm_name="G
         analysis = analyze_convergence(convergence_history)
         print(f"\n🔄 CONVERGENCE ANALYSIS:")
         print(f"  • Total Generations:            {analysis['total_generations']}")
-        print(f"  • Initial Score:                {analysis['initial_score']:.4f}")
-        print(f"  • Final Score:                  {analysis['final_score']:.4f}")
-        print(f"  • Best Score Ever:              {analysis['best_score_ever']:.4f}")
+        print(f"  • Initial Score:                {safe_format_score(analysis['initial_score'])}")
+        print(f"  • Final Score:                  {safe_format_score(analysis['final_score'])}")
+        print(f"  • Best Score Ever:              {safe_format_score(analysis['best_score_ever'])}")
         
         if analysis['converged_at_generation'] is not None:
             print(f"  • Converged at Generation:      {analysis['converged_at_generation']}")
@@ -1404,11 +1426,11 @@ def compare_parameter_results(results):
                   f"{metrics['coverage_efficiency']:>11.2%} "
                   f"{metrics['workload_balance_index']:>12.4f} "
                   f"{metrics['solution_quality_index']:>12.4f} "
-                  f"{metrics['combined_score']:>12.4f}")
+                  f"{safe_format_score(metrics['combined_score']):>12}")
         
         # Find best value
         best_entry = min(param_data, key=lambda x: x[1]['combined_score'])
-        print(f"\n  ✓ Best {param_name}: {best_entry[0]} (Score: {best_entry[1]['combined_score']:.4f})")
+        print(f"\n  ✓ Best {param_name}: {best_entry[0]} (Score: {safe_format_score(best_entry[1]['combined_score'])})")
     
     print("\n" + "="*70 + "\n")
 
@@ -1579,7 +1601,7 @@ if __name__ == "__main__":
         print(f"      Imbalance term: w2 × balance_score = {w2:.1f} × {imbalance_term:.3f} = {w2 * imbalance_term:.3f}")
         print(f"      Penalty term: {penalty_term:.1f}")
         print(f"      ─────────────────────────────────────────────")
-        print(f"      Combined Score: {sol.combined_score:.3f} (lower = better)")
+        print(f"      Combined Score: {safe_format_score(sol.combined_score)} (lower = better)")
         print(f"         → Formula: J = {w1:.1f}(1-coverage) + {w2:.1f}(imbalance) + penalty")
     
     print("\n" + "="*60)
@@ -1608,12 +1630,12 @@ if __name__ == "__main__":
     sorted_pop = sorted(population, key=lambda x: x.combined_score if x.combined_score is not None else float('inf'))
     print("\n📊 Population Ranking (by score, lower = better):")
     for idx, sol in enumerate(sorted_pop):
-        print(f"   Rank {idx + 1}: Score = {sol.combined_score:.3f}, Robot 0 path = {sol.paths.get(0, [])[:5]}...")
+        print(f"   Rank {idx + 1}: Score = {safe_format_score(sol.combined_score)}, Robot 0 path = {sol.paths.get(0, [])[:5]}...")
     
     best_solution = sorted_pop[0]
     worst_solution = sorted_pop[-1]
-    print(f"\n✓ Best solution: Score = {best_solution.combined_score:.3f}")
-    print(f"✓ Worst solution: Score = {worst_solution.combined_score:.3f}")
+    print(f"\n✓ Best solution: Score = {safe_format_score(best_solution.combined_score)}")
+    print(f"✓ Worst solution: Score = {safe_format_score(worst_solution.combined_score)}")
     
     # Test tournament selection with different tournament sizes
     print("\n" + "-"*60)
@@ -1647,13 +1669,13 @@ if __name__ == "__main__":
         best_rank_selected = min(selected_ranks)
         worst_rank_selected = max(selected_ranks)
         
-        print(f"   Selected Scores: {[f'{s:.3f}' for s in selected_scores]}")
+        print(f"   Selected Scores: {[safe_format_score(s) for s in selected_scores]}")
         print(f"   Selected Ranks:  {selected_ranks}")
         print(f"\n   Statistics:")
-        print(f"      Average Score: {avg_score:.3f} (population avg: {sum(s.combined_score for s in population)/len(population):.3f})")
+        print(f"      Average Score: {safe_format_score(avg_score)} (population avg: {safe_format_score(sum(s.combined_score for s in population)/len(population))})")
         print(f"      Average Rank:  {avg_rank:.1f} (out of {len(population)})")
-        print(f"      Best Selected: Score {best_selected:.3f} (Rank {best_rank_selected})")
-        print(f"      Worst Selected: Score {worst_selected:.3f} (Rank {worst_rank_selected})")
+        print(f"      Best Selected: Score {safe_format_score(best_selected)} (Rank {best_rank_selected})")
+        print(f"      Worst Selected: Score {safe_format_score(worst_selected)} (Rank {worst_rank_selected})")
         print(f"      → Lower rank = better solution")
         print(f"      → Tournament size {tournament_size} tends to select rank {avg_rank:.1f} on average")
     
@@ -1670,13 +1692,13 @@ if __name__ == "__main__":
     print(f"   Selected for tournament:")
     for idx, sol in enumerate(tournament):
         rank = next((idx + 1 for idx, s in enumerate(sorted_pop) if s.combined_score == sol.combined_score), -1)
-        print(f"      Contestant {idx + 1}: Score = {sol.combined_score:.3f} (Rank {rank}), Robot 0 path = {sol.paths.get(0, [])[:5]}...")
+        print(f"      Contestant {idx + 1}: Score = {safe_format_score(sol.combined_score)} (Rank {rank}), Robot 0 path = {sol.paths.get(0, [])[:5]}...")
     
     print("\n   Step 2: Compare their scores (lower = better)")
     winner = min(tournament, key=lambda x: x.combined_score if x.combined_score is not None else float('inf'))
     winner_rank = next((idx + 1 for idx, sol in enumerate(sorted_pop) if sol.combined_score == winner.combined_score), -1)
     print(f"   Step 3: Winner is the one with lowest score")
-    print(f"      🏆 Winner: Score = {winner.combined_score:.3f} (Rank {winner_rank})")
+    print(f"      🏆 Winner: Score = {safe_format_score(winner.combined_score)} (Rank {winner_rank})")
     print(f"      → This winner becomes a parent for crossover")
     
     # Show multiple tournaments to demonstrate selection pressure
@@ -1699,7 +1721,7 @@ if __name__ == "__main__":
     for score in sorted(winner_counts.keys()):
         rank = next((idx + 1 for idx, sol in enumerate(sorted_pop) if sol.combined_score == score), -1)
         count = winner_counts[score]
-        print(f"      Rank {rank} (Score {score:.3f}): Selected {count}/20 times ({count*5}%)")
+        print(f"      Rank {rank} (Score {safe_format_score(score)}): Selected {count}/20 times ({count*5}%)")
     
     best_count = winner_counts.get(best_solution.combined_score, 0)
     print(f"\n   ✓ Best solution (Rank 1) selected: {best_count}/20 times ({best_count*5}%)")
@@ -1758,11 +1780,11 @@ HOW TOURNAMENT SELECTION WORKS:
     parent2 = sorted_pop[1]  # Second best
     
     print("\n📊 Parent Solutions:")
-    print(f"   Parent 1 (Score: {parent1.combined_score:.3f}):")
+    print(f"   Parent 1 (Score: {safe_format_score(parent1.combined_score)}):")
     for robot_id in sorted(parent1.paths.keys()):
         print(f"      Robot {robot_id}: {parent1.paths[robot_id]}")
     
-    print(f"\n   Parent 2 (Score: {parent2.combined_score:.3f}):")
+    print(f"\n   Parent 2 (Score: {safe_format_score(parent2.combined_score)}):")
     for robot_id in sorted(parent2.paths.keys()):
         print(f"      Robot {robot_id}: {parent2.paths[robot_id]}")
     
@@ -1776,7 +1798,7 @@ HOW TOURNAMENT SELECTION WORKS:
         child = crossover_order_based(parent1, parent2, crossover_rate)
         child.evaluate()
         
-        print(f"   Child (Score: {child.combined_score:.3f}):")
+        print(f"   Child (Score: {safe_format_score(child.combined_score)}):")
         for robot_id in sorted(child.paths.keys()):
             print(f"      Robot {robot_id}: {child.paths[robot_id]}")
         
@@ -1871,7 +1893,7 @@ HOW ONE-POINT ORDER-BASED CROSSOVER WORKS:
     original_paths = {r: test_sol.paths[r].copy() for r in test_sol.paths}
     
     print("\n📊 Original Solution:")
-    score_str = f"{test_sol.combined_score:.3f}" if test_sol.combined_score is not None else "Not evaluated"
+    score_str = safe_format_score(test_sol.combined_score) if test_sol.combined_score is not None else "Not evaluated"
     print(f"   Score: {score_str}")
     for robot_id in sorted(test_sol.paths.keys()):
         print(f"   Robot {robot_id}: {test_sol.paths[robot_id]}")
@@ -1992,7 +2014,7 @@ HOW SWAP MUTATION WORKS:
     old_pop = sorted_pop.copy()  # Sorted by score
     print("\n📊 Old Population (Generation N):")
     for idx, sol in enumerate(old_pop):
-        score_str = f"{sol.combined_score:.3f}" if sol.combined_score is not None else "Not evaluated"
+        score_str = safe_format_score(sol.combined_score) if sol.combined_score is not None else "Not evaluated"
         print(f"   Rank {idx + 1}: Score = {score_str}")
     
     # Create new population (all with worse scores)
@@ -2008,13 +2030,13 @@ HOW SWAP MUTATION WORKS:
     new_pop_sorted = sorted(new_pop, key=lambda x: x.combined_score if x.combined_score is not None else float('inf'))
     print("\n📊 New Population (Generation N+1, before elitism):")
     for idx, sol in enumerate(new_pop_sorted):
-        score_str = f"{sol.combined_score:.3f}" if sol.combined_score is not None else "Not evaluated"
+        score_str = safe_format_score(sol.combined_score) if sol.combined_score is not None else "Not evaluated"
         print(f"   Rank {idx + 1}: Score = {score_str}")
     
     old_best = old_pop[0].combined_score if old_pop[0].combined_score is not None else float('inf')
     new_best = new_pop_sorted[0].combined_score if new_pop_sorted[0].combined_score is not None else float('inf')
-    print(f"\n✓ Old best: {old_best:.3f}")
-    print(f"✓ New best (before elitism): {new_best:.3f}")
+    print(f"\n✓ Old best: {safe_format_score(old_best)}")
+    print(f"✓ New best (before elitism): {safe_format_score(new_best)}")
     print(f"✓ New population is worse (as expected)")
     
     # Apply elitism
@@ -2027,7 +2049,7 @@ HOW SWAP MUTATION WORKS:
     print("-"*60)
     print("\n📊 Final Population:")
     for idx, sol in enumerate(final_pop_sorted):
-        score_str = f"{sol.combined_score:.3f}" if sol.combined_score is not None else "Not evaluated"
+        score_str = safe_format_score(sol.combined_score) if sol.combined_score is not None else "Not evaluated"
         print(f"   Rank {idx + 1}: Score = {score_str}")
     
     final_best_score = final_pop_sorted[0].combined_score if final_pop_sorted[0].combined_score is not None else float('inf')
@@ -2035,7 +2057,7 @@ HOW SWAP MUTATION WORKS:
     old_second_score = old_pop[1].combined_score if len(old_pop) > 1 and old_pop[1].combined_score is not None else float('inf')
     final_second_score = final_pop_sorted[1].combined_score if len(final_pop_sorted) > 1 and final_pop_sorted[1].combined_score is not None else float('inf')
     
-    print(f"\n✓ Final best: {final_best_score:.3f}")
+    print(f"\n✓ Final best: {safe_format_score(final_best_score)}")
     print(f"✓ Best preserved: {final_best_score == old_best_score}")
     print(f"✓ Second best preserved: {final_second_score == old_second_score}")
     print(f"✓ Population size maintained: {len(final_pop) == len(old_pop)}")
@@ -2161,7 +2183,7 @@ HOW ELITISM WORKS:
     print(f"   Imbalance term: {w2:.1f} × {imbalance_term:.3f} = {w2 * imbalance_term:.3f}")
     print(f"   Penalty term: {penalty:.1f}")
     print(f"   ─────────────────────────────────────────────")
-    print(f"   Combined Score: {test_solution.combined_score:.3f} (lower = better)")
+    print(f"   Combined Score: {safe_format_score(test_solution.combined_score)} (lower = better)")
     
     print("\n" + "="*60)
     print("FITNESS EVALUATION CONCEPT EXPLANATION:")
@@ -2216,8 +2238,8 @@ HOW FITNESS EVALUATION WORKS:
     initial_avg = sum(s.combined_score for s in test_pop if s.combined_score is not None) / len(test_pop)
     
     print("\n📊 Initial Population (Generation 0):")
-    print(f"   Best score: {initial_best.combined_score:.3f}")
-    print(f"   Average score: {initial_avg:.3f}")
+    print(f"   Best score: {safe_format_score(initial_best.combined_score)}")
+    print(f"   Average score: {safe_format_score(initial_avg)}")
     print(f"   Population size: {len(test_pop)}")
     
     print("\n" + "-"*60)
@@ -2237,8 +2259,8 @@ HOW FITNESS EVALUATION WORKS:
         
         if i < 2:  # Show details for first 2
             print(f"\n   Offspring {i+1}:")
-            print(f"      Parent 1: Score = {parent1.combined_score:.3f}")
-            print(f"      Parent 2: Score = {parent2.combined_score:.3f}")
+            print(f"      Parent 1: Score = {safe_format_score(parent1.combined_score)}")
+            print(f"      Parent 2: Score = {safe_format_score(parent2.combined_score)}")
         
         # Crossover
         child = crossover_order_based(parent1, parent2, crossover_rate=0.8)
@@ -2261,7 +2283,7 @@ HOW FITNESS EVALUATION WORKS:
         new_pop.append(child)
         
         if i < 2:
-            print(f"      Child score: {child.combined_score:.3f}")
+            print(f"      Child score: {safe_format_score(child.combined_score)}")
     
     print(f"\n   Summary:")
     print(f"      Crossovers: {crossovers}/{len(test_pop)}")
@@ -2273,12 +2295,12 @@ HOW FITNESS EVALUATION WORKS:
     final_avg = sum(s.combined_score for s in final_pop if s.combined_score is not None) / len(final_pop)
     
     print("\n📊 Final Population (Generation 1):")
-    print(f"   Best score: {final_best.combined_score:.3f}")
-    print(f"   Average score: {final_avg:.3f}")
+    print(f"   Best score: {safe_format_score(final_best.combined_score)}")
+    print(f"   Average score: {safe_format_score(final_avg)}")
     print(f"   Population size: {len(final_pop)}")
     
     print(f"\n✓ Best improved or maintained: {final_best.combined_score <= initial_best.combined_score}")
-    print(f"✓ Average changed: {abs(final_avg - initial_avg):.3f}")
+    print(f"✓ Average changed: {safe_format_score(abs(final_avg - initial_avg))}")
     print(f"✓ Population size maintained: {len(final_pop) == len(test_pop)}")
     
     print("\n" + "="*60)
