@@ -34,7 +34,7 @@ def compare_sa_vs_ga(all_cells, free_cells, obstacles, grid_width, grid_height, 
     
     Args:
         sa_params: dict with SA parameters (initial_temp, cooling_rate, max_iterations)
-        ga_params: dict with GA parameters (population_size, generations, crossover_rate, mutation_rate)
+        ga_params: dict with GA parameters (population_size, generations)
     """
     
     # Default parameters
@@ -49,8 +49,6 @@ def compare_sa_vs_ga(all_cells, free_cells, obstacles, grid_width, grid_height, 
         ga_params = {
             'population_size': 50,
             'generations': 100,
-            'crossover_rate': 0.8,
-            'mutation_rate': 0.1
         }
     
     print("\n" + "="*70)
@@ -75,8 +73,6 @@ def compare_sa_vs_ga(all_cells, free_cells, obstacles, grid_width, grid_height, 
         all_cells, free_cells, obstacles, grid_width, grid_height, num_robots,
         population_size=ga_params['population_size'],
         generations=ga_params['generations'],
-        crossover_rate=ga_params['crossover_rate'],
-        mutation_rate=ga_params['mutation_rate']
     )
     
     # Compare metrics

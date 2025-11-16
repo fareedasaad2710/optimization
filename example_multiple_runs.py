@@ -30,9 +30,6 @@ def case_study_1_with_multiple_runs(num_runs=5):
     ga_params = {
         'population_size': 30,
         'generations': 50,
-        'crossover_rate': 0.8,
-        'mutation_rate': 0.1,
-        'elitism_count': 2,
         'verbose': False  # Set to False to reduce output during multiple runs
     }
     

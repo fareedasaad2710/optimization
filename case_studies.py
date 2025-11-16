@@ -47,9 +47,6 @@ def case_study_1_small_grid():
     ga_params = {
         'population_size': 30,
         'generations': 50,
-        'crossover_rate': 0.8,
-        'mutation_rate': 0.1,
-        'elitism_count': 2
     }
     
     sa_params = {
@@ -217,9 +214,6 @@ def case_study_2_medium_grid():
     ga_params = {
         'population_size': 50,
         'generations': 100,
-        'crossover_rate': 0.8,
-        'mutation_rate': 0.12,
-        'elitism_count': 3
     }
     
     sa_params = {
@@ -375,9 +369,6 @@ def case_study_2_medium_grid_multiple_runs(num_runs=5):
     ga_params = {
         'population_size': 50,
         'generations': 100,
-        'crossover_rate': 0.8,
-        'mutation_rate': 0.12,
-        'elitism_count': 3,
         'verbose': False  # Set to False to reduce output during multiple runs
     }
     
@@ -568,9 +559,6 @@ def case_study_3_large_grid():
     ga_params = {
         'population_size': 100,
         'generations': 200,
-        'crossover_rate': 0.8,
-        'mutation_rate': 0.15,
-        'elitism_count': 5
     }
     
     sa_params = {
@@ -723,9 +711,6 @@ def case_study_4_many_robots():
     ga_params = {
         'population_size': 80,
         'generations': 150,
-        'crossover_rate': 0.85,
-        'mutation_rate': 0.15,
-        'elitism_count': 4
     }
     
     sa_params = {

@@ -240,8 +240,6 @@ def test_small_case():
         grid_width, grid_height, num_robots,
         population_size=20,
         generations=30,
-        crossover_rate=0.8,
-        mutation_rate=0.1,
         verbose=False,
     )
     ga_solution = ga_results['best_solution']
@@ -293,8 +291,6 @@ def test_medium_case():
         grid_width, grid_height, num_robots,
         population_size=40,
         generations=50,
-        crossover_rate=0.8,
-        mutation_rate=0.1,
         verbose=False,
     )
     ga_solution = ga_results['best_solution']
@@ -347,8 +343,6 @@ def test_large_case():
         grid_width, grid_height, num_robots,
         population_size=60,
         generations=100,
-        crossover_rate=0.8,
-        mutation_rate=0.1,
         verbose=False,
     )
     ga_solution = ga_results['best_solution']
@@ -409,8 +403,6 @@ def test_sa_vs_ga_comparison():
         grid_width, grid_height, num_robots,
         population_size=50,
         generations=80,
-        crossover_rate=0.8,
-        mutation_rate=0.1,
         verbose=False,
     )
     ga_solution = ga_results['best_solution']
@@ -524,8 +516,6 @@ def run_quick_demo():
         grid_width, grid_height, num_robots,
         population_size=20,
         generations=30,
-        crossover_rate=0.8,
-        mutation_rate=0.1,
         verbose=True,
     )
 

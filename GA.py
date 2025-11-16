@@ -554,7 +554,7 @@ def crossover_ox1_assignment(parent1_assignment, parent2_assignment, num_robots)
     
     return child_assignment
 
-def crossover_order_based(parent1, parent2, crossover_rate=0.8):
+def crossover_order_based(parent1, parent2):
     """
     CROSSOVER with random selection: Assignment OR Path
     Uses Standard OX1 (two crossover points) for both
@@ -562,10 +562,9 @@ def crossover_order_based(parent1, parent2, crossover_rate=0.8):
     - Random number 0 or 1:
       - 0: Crossover ASSIGNMENT using OX1
       - 1: Crossover PATH using OX1
-    """
-    if random.random() > crossover_rate:
-        return parent1.copy()
     
+    NOTE: Crossover always happens (no probability check)
+    """
     child = parent1.copy()
     num_robots = len(parent1.paths)
     
@@ -638,14 +637,16 @@ def crossover_order_based(parent1, parent2, crossover_rate=0.8):
 
 # Replace apply_crossover (around line 470):
 
-def apply_crossover(parent1, parent2, crossover_rate=0.8):
+def apply_crossover(parent1, parent2):
     """
     Apply ONE-POINT ORDER-BASED CROSSOVER (OX1)
     
     This is the only crossover method used in this implementation.
     Standard for path planning problems.
+    
+    NOTE: Crossover always happens (no probability check)
     """
-    return crossover_order_based(parent1, parent2, crossover_rate)
+    return crossover_order_based(parent1, parent2)
 def mutate_robot_path(solution, robot_id):
     """
     Mutate a specific robot's path by swapping two cells
@@ -770,38 +771,10 @@ def mutate_path_swap(solution, mutation_rate=0.1):
     
     return solution
 
-def apply_elitism(population, new_population, elitism_count=2):
-    """
-    WHAT DOES THIS DO?
-    - Keeps the best solutions from previous generation
-    - Like preserving the best genes
-    - This ensures we never lose our best solutions
-    
-    NOTE: This function is ONLY used in test/debugging functions (TEST 5 and TEST 7)
-    - It is NOT used in the main genetic_algorithm() function
-    - The main GA uses 10% Selection (elitism) step instead, which directly copies
-      best solutions to the new population
-    - This function is kept for testing purposes to demonstrate elitism concept
-    """
-    # Sort population by fitness (best first - lowest score is best)
-    sorted_population = sorted(population, key=lambda x: x.combined_score if x.combined_score is not None else float('inf'))
-    
-    # Take best solutions (elite)
-    elite = [sol.copy() for sol in sorted_population[:elitism_count]]
-    
-    # Sort new population by fitness (worst first - highest score is worst)
-    sorted_new_population = sorted(new_population, key=lambda x: x.combined_score if x.combined_score is not None else float('inf'), reverse=True)
-    
-    # Replace worst solutions in new population with elite
-    for i, elite_solution in enumerate(elite):
-        if i < len(sorted_new_population):
-            sorted_new_population[i] = elite_solution
-    
-    return sorted_new_population
-
 def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height, num_robots,
-                      population_size=5, generations=100, crossover_rate=0.8, mutation_rate=0.1, 
-                      elitism_count=2, verbose=True):
+                      population_size=5, generations=100, 
+                      verbose=True, selection_percentage=0.10, 
+                      crossover_percentage=0.80, mutation_percentage=0.10):
     """
     Genetic Algorithm for robot coverage problem
     
@@ -815,9 +788,10 @@ def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height,
     print(f"📋 Parameters:")
     print(f"   • Population Size:    {population_size}")
     print(f"   • Generations:        {generations}")
-    print(f"   • Crossover Rate:     {crossover_rate}")
-    print(f"   • Mutation Rate:      {mutation_rate}")
-    print(f"   • Elitism Count:      {elitism_count}")
+    print(f"   • Population Strategy:")
+    print(f"     - Selection (Elite): {selection_percentage*100:.0f}%")
+    print(f"     - Crossover:         {crossover_percentage*100:.0f}%")
+    print(f"     - Mutation:          {mutation_percentage*100:.0f}%")
     print(f"{'='*70}\n")
     
     # Step 1: Initialize population (generation 0)
@@ -858,8 +832,7 @@ def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height,
         'best_coverage': [],
         'best_balance': [],
         'crossover_count': [],
-        'mutation_count': [],
-        'elite_preserved': []
+        'mutation_count': []
     }
     
     # Counters for operations
@@ -881,10 +854,8 @@ def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height,
         gen_selections = 0
         
         # Step 2: Create new generation with percentages
-        # 10% Selection (Elitism), 80% Crossover, 10% Mutation
-        selection_percentage = 0.10
-        crossover_percentage = 0.80
-        mutation_percentage = 0.10
+        # Configurable: Selection (Elitism), Crossover, Mutation percentages
+        # Default: 10% Selection (Elitism), 80% Crossover, 10% Mutation
         
         num_selection = int(population_size * selection_percentage)
         num_crossover = int(population_size * crossover_percentage)
@@ -922,29 +893,35 @@ def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height,
                 print(f"         • Parent 2 (score: {safe_format_score(parent2.combined_score)})")
             
             # Create child through crossover (randomly: assignment or path)
-            child = apply_crossover(parent1, parent2, crossover_rate)
+            # NOTE: Crossover always happens (no probability check) - count all attempts
+            child = apply_crossover(parent1, parent2)
             
-            # ✅ Check if crossover happened (paths or assignment changed)
-            did_crossover = (child.paths != parent1.paths) or (child.assignment != parent1.assignment)
-            if did_crossover:
-                gen_crossovers += 1
-                if verbose and generation < 2 and i < 2:
-                    # Show which type of crossover was used
-                    crossover_type = getattr(child, '_crossover_type', None)
-                    if crossover_type == 0:
-                        print(f"         • Random number: 0 → Crossover ASSIGNMENT using OX1 (two points)")
-                    elif crossover_type == 1:
-                        print(f"         • Random number: 1 → Crossover PATH using OX1 (two points)")
+            # Always count crossover attempt (crossover always happens now)
+            gen_crossovers += 1
+            
+            # Check if crossover actually changed something (for verbose output only)
+            did_change = (child.paths != parent1.paths) or (child.assignment != parent1.assignment)
+            
+            if verbose and generation < 2 and i < 2:
+                # Show which type of crossover was used
+                crossover_type = getattr(child, '_crossover_type', None)
+                if crossover_type == 0:
+                    print(f"         • Random number: 0 → Crossover ASSIGNMENT using OX1 (two points)")
+                elif crossover_type == 1:
+                    print(f"         • Random number: 1 → Crossover PATH using OX1 (two points)")
+                else:
+                    # Fallback: determine by what changed
+                    assignment_changed = (child.assignment != parent1.assignment)
+                    path_changed = (child.paths != parent1.paths)
+                    if assignment_changed and not path_changed:
+                        print(f"         • ✂️  OX1 Crossover applied: ASSIGNMENT")
+                    elif path_changed and not assignment_changed:
+                        print(f"         • ✂️  OX1 Crossover applied: PATH")
                     else:
-                        # Fallback: determine by what changed
-                        assignment_changed = (child.assignment != parent1.assignment)
-                        path_changed = (child.paths != parent1.paths)
-                        if assignment_changed and not path_changed:
-                            print(f"         • ✂️  OX1 Crossover applied: ASSIGNMENT")
-                        elif path_changed and not assignment_changed:
-                            print(f"         • ✂️  OX1 Crossover applied: PATH")
-                        else:
-                            print(f"         • ✂️  OX1 Crossover applied: ASSIGNMENT & PATH")
+                        print(f"         • ✂️  OX1 Crossover applied: ASSIGNMENT & PATH")
+                
+                if not did_change:
+                    print(f"         • ⚠️  Note: Crossover applied but result identical to Parent 1")
             
             # Evaluate child
             child.evaluate()
@@ -1046,7 +1023,6 @@ def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height,
         convergence_history['worst_score'].append(max(scores))
         convergence_history['crossover_count'].append(gen_crossovers)
         convergence_history['mutation_count'].append(gen_mutations)
-        convergence_history['elite_preserved'].append(elitism_count)
         
         if best_solution.fitness:
             convergence_history['best_coverage'].append(best_solution.fitness['coverage_score'])
@@ -1139,13 +1115,14 @@ def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height,
     axes[0, 0].legend()
     axes[0, 0].grid(True, alpha=0.3)
 
-    # Plot elite preservation
+    # Plot selection count (elite solutions copied)
+    selection_count = [int(population_size * selection_percentage) for _ in convergence_history['generation']]
     axes[0, 1].plot(convergence_history['generation'], 
-                    convergence_history['elite_preserved'], 
+                    selection_count, 
                     color='purple', marker='D')
     axes[0, 1].set_xlabel('Generation')
     axes[0, 1].set_ylabel('Elite Count')
-    axes[0, 1].set_title('Elite Solutions Preserved')
+    axes[0, 1].set_title(f'Elite Solutions Preserved ({selection_percentage*100:.0f}% Selection)')
     axes[0, 1].grid(True, alpha=0.3)
 
     # Plot coverage and balance scores
@@ -1241,7 +1218,7 @@ def test_ga_parameters(all_cells, free_cells, obstacles, grid_width, grid_height
         print(f"  → Running with population_size={pop_size}...")
         solution, history = genetic_algorithm(
             all_cells, free_cells, obstacles, grid_width, grid_height, num_robots,
-            population_size=pop_size, generations=50, crossover_rate=0.8, mutation_rate=0.1
+            population_size=pop_size, generations=50
         )
         results[f'pop_{pop_size}'] = {
             'solution': solution,
@@ -1255,36 +1232,41 @@ def test_ga_parameters(all_cells, free_cells, obstacles, grid_width, grid_height
     # Test 2: Mutation Rate Effect
     print("\n[TEST 2/4] Mutation Rate Effect")
     print("-" * 70)
-    for mut_rate in [0.05, 0.1, 0.2, 0.3]:
-        print(f"  → Running with mutation_rate={mut_rate}...")
+    # Note: mutation_rate parameter removed - mutation is controlled by mutation_percentage
+    # Testing different mutation_percentage values instead
+    for mut_pct in [0.05, 0.1, 0.2, 0.3]:
+        print(f"  → Running with mutation_percentage={mut_pct}...")
         solution, history = genetic_algorithm(
             all_cells, free_cells, obstacles, grid_width, grid_height, num_robots,
-            population_size=5, generations=50, crossover_rate=0.8, mutation_rate=mut_rate
+            population_size=5, generations=50, mutation_percentage=mut_pct
         )
-        results[f'mut_{mut_rate}'] = {
+        results[f'mut_{mut_pct}'] = {
             'solution': solution,
             'history': history,
             'metrics': solution.get_all_performance_metrics(),
-            'parameter': 'mutation_rate',
-            'value': mut_rate
+            'parameter': 'mutation_percentage',
+            'value': mut_pct
         }
         print(f"     ✓ Best Score: {safe_format_score(solution.combined_score)}")
     
-    # Test 3: Crossover Rate Effect
-    print("\n[TEST 3/4] Crossover Rate Effect")
+    # Test 3: Crossover Rate Effect (REMOVED - crossover always happens now)
+    # Note: Crossover rate parameter removed - crossover always occurs for all crossover attempts
+    print("\n[TEST 3/4] Crossover Percentage Effect")
     print("-" * 70)
-    for cross_rate in [0.6, 0.8, 0.95]:
-        print(f"  → Running with crossover_rate={cross_rate}...")
+    print("  Note: Crossover always happens (no probability check)")
+    print("  Testing different crossover_percentage values instead...")
+    for cross_pct in [0.6, 0.8, 0.95]:
+        print(f"  → Running with crossover_percentage={cross_pct}...")
         solution, history = genetic_algorithm(
             all_cells, free_cells, obstacles, grid_width, grid_height, num_robots,
-            population_size=5, generations=50, crossover_rate=cross_rate, mutation_rate=0.1
+            population_size=5, generations=50, crossover_percentage=cross_pct
         )
-        results[f'cross_{cross_rate}'] = {
+        results[f'cross_{cross_pct}'] = {
             'solution': solution,
             'history': history,
             'metrics': solution.get_all_performance_metrics(),
-            'parameter': 'crossover_rate',
-            'value': cross_rate
+            'parameter': 'crossover_percentage',
+            'value': cross_pct
         }
         print(f"     ✓ Best Score: {safe_format_score(solution.combined_score)}")
     
@@ -1295,7 +1277,7 @@ def test_ga_parameters(all_cells, free_cells, obstacles, grid_width, grid_height
         print(f"  → Running with generations={gens}...")
         solution, history = genetic_algorithm(
             all_cells, free_cells, obstacles, grid_width, grid_height, num_robots,
-            population_size=5, generations=gens, crossover_rate=0.8, mutation_rate=0.1
+            population_size=5, generations=gens
         )
         results[f'gen_{gens}'] = {
             'solution': solution,
@@ -1826,37 +1808,34 @@ HOW TOURNAMENT SELECTION WORKS:
     for robot_id in sorted(parent2.paths.keys()):
         print(f"      Robot {robot_id}: {parent2.paths[robot_id]}")
     
-    # Test crossover with different rates
+    # Test crossover (always happens now)
     print("\n" + "-"*60)
     print("CROSSOVER SIMULATION:")
     print("-"*60)
+    print("   Note: Crossover always happens (no probability check)")
     
-    for crossover_rate in [0.0, 0.5, 1.0]:
-        print(f"\n🔹 Crossover Rate = {crossover_rate}:")
-        child = crossover_order_based(parent1, parent2, crossover_rate)
-        child.evaluate()
+    print(f"\n🔹 Crossover (always applied):")
+    child = crossover_order_based(parent1, parent2)
+    child.evaluate()
+    
+    print(f"   Child (Score: {safe_format_score(child.combined_score)}):")
+    for robot_id in sorted(child.paths.keys()):
+        print(f"      Robot {robot_id}: {child.paths[robot_id]}")
+    
+    # Check inheritance
+    print(f"   ✓ Crossover applied: Child different from both parents")
+    print(f"      Different from Parent 1: {child.paths != parent1.paths}")
+    print(f"      Different from Parent 2: {child.paths != parent2.paths}")
+    
+    # Check if child inherits from both parents
+    for robot_id in sorted(child.paths.keys()):
+        child_path = child.paths[robot_id]
+        p1_path = parent1.paths.get(robot_id, [])
+        p2_path = parent2.paths.get(robot_id, [])
         
-        print(f"   Child (Score: {safe_format_score(child.combined_score)}):")
-        for robot_id in sorted(child.paths.keys()):
-            print(f"      Robot {robot_id}: {child.paths[robot_id]}")
-        
-        # Check inheritance
-        if crossover_rate == 0.0:
-            print(f"   ✓ No crossover: Child identical to Parent 1: {child.paths == parent1.paths}")
-        elif crossover_rate == 1.0:
-            print(f"   ✓ Crossover applied: Child different from both parents")
-            print(f"      Different from Parent 1: {child.paths != parent1.paths}")
-            print(f"      Different from Parent 2: {child.paths != parent2.paths}")
-            
-            # Check if child inherits from both parents
-            for robot_id in sorted(child.paths.keys()):
-                child_path = child.paths[robot_id]
-                p1_path = parent1.paths.get(robot_id, [])
-                p2_path = parent2.paths.get(robot_id, [])
-                
-                from_p1 = any(cell in p1_path for cell in child_path)
-                from_p2 = any(cell in p2_path for cell in child_path)
-                print(f"      Robot {robot_id}: Has cells from Parent 1: {from_p1}, Parent 2: {from_p2}")
+        from_p1 = any(cell in p1_path for cell in child_path)
+        from_p2 = any(cell in p2_path for cell in child_path)
+        print(f"      Robot {robot_id}: Has cells from Parent 1: {from_p1}, Parent 2: {from_p2}")
     
     # Step-by-step crossover example
     print("\n" + "-"*60)
@@ -1867,7 +1846,7 @@ HOW TOURNAMENT SELECTION WORKS:
     print("   Parent 1 Robot 0:", parent1.paths.get(0, []))
     print("   Parent 2 Robot 0:", parent2.paths.get(0, []))
     
-    child_example = crossover_order_based(parent1, parent2, crossover_rate=1.0)
+    child_example = crossover_order_based(parent1, parent2)
     child_path = child_example.paths.get(0, [])
     p1_path = parent1.paths.get(0, [])
     p2_path = parent2.paths.get(0, [])
@@ -2023,7 +2002,7 @@ HOW SWAP MUTATION WORKS:
    - Maintains diversity in population
 
 2. PROCESS:
-   Step 1: Check if mutation should happen (based on mutation_rate)
+   Step 1: Select worst solutions (based on mutation_percentage)
    Step 2: Find robots with paths of length >= 2
    Step 3: Pick a random robot
    Step 4: Pick two different positions in that robot's path
@@ -2035,10 +2014,10 @@ HOW SWAP MUTATION WORKS:
    ✓ Same path length
    ✓ Can improve or worsen the solution
 
-4. MUTATION RATE:
-   - mutation_rate = 0.1 means 10% chance per solution
-   - Higher rate = more exploration, more diversity
-   - Lower rate = less exploration, faster convergence
+4. MUTATION PERCENTAGE:
+   - mutation_percentage = 0.1 means 10% of population will be mutated
+   - Higher percentage = more exploration, more diversity
+   - Lower percentage = less exploration, faster convergence
 """)
     print("="*60)
     
@@ -2074,16 +2053,29 @@ HOW SWAP MUTATION WORKS:
     old_best = old_pop[0].combined_score if old_pop[0].combined_score is not None else float('inf')
     new_best = new_pop_sorted[0].combined_score if new_pop_sorted[0].combined_score is not None else float('inf')
     print(f"\n✓ Old best: {safe_format_score(old_best)}")
-    print(f"✓ New best (before elitism): {safe_format_score(new_best)}")
+    print(f"✓ New best (before selection): {safe_format_score(new_best)}")
     print(f"✓ New population is worse (as expected)")
     
-    # Apply elitism
-    elitism_count = 2
-    final_pop = apply_elitism(old_pop, new_pop, elitism_count=elitism_count)
+    # Apply selection (elitism) using selection_percentage approach
+    selection_percentage = 0.10  # 10% selection
+    num_selection = int(len(old_pop) * selection_percentage)
+    print(f"\n   Selection percentage: {selection_percentage*100:.0f}%")
+    print(f"   Number of elite solutions to copy: {num_selection}")
+    
+    # Create final population: copy best solutions directly (selection approach)
+    final_pop = []
+    # Copy top solutions from old population (elitism)
+    for i in range(num_selection):
+        final_pop.append(old_pop[i].copy())
+        print(f"   ✓ Copied {i+1}-th best solution (score: {safe_format_score(old_pop[i].combined_score)})")
+    
+    # Add remaining solutions from new population
+    final_pop.extend(new_pop[:len(old_pop) - num_selection])
+    
     final_pop_sorted = sorted(final_pop, key=lambda x: x.combined_score if x.combined_score is not None else float('inf'))
     
     print("\n" + "-"*60)
-    print("AFTER ELITISM (keeping top 2 from old population):")
+    print(f"AFTER SELECTION ({selection_percentage*100:.0f}% elite copied directly):")
     print("-"*60)
     print("\n📊 Final Population:")
     for idx, sol in enumerate(final_pop_sorted):
@@ -2097,30 +2089,33 @@ HOW SWAP MUTATION WORKS:
     
     print(f"\n✓ Final best: {safe_format_score(final_best_score)}")
     print(f"✓ Best preserved: {final_best_score == old_best_score}")
-    print(f"✓ Second best preserved: {final_second_score == old_second_score}")
+    if num_selection >= 2:
+        print(f"✓ Second best preserved: {final_second_score == old_second_score}")
     print(f"✓ Population size maintained: {len(final_pop) == len(old_pop)}")
     
     print("\n" + "="*60)
-    print("ELITISM CONCEPT EXPLANATION:")
+    print("SELECTION (ELITISM) CONCEPT EXPLANATION:")
     print("="*60)
     print("""
-HOW ELITISM WORKS:
+HOW SELECTION (ELITISM) WORKS:
 
 1. PURPOSE:
    - Preserves the best solutions from previous generation
    - Ensures we never lose our best solutions
    - Prevents regression (going backwards)
 
-2. PROCESS:
+2. PROCESS (using selection_percentage):
    Step 1: Sort old population by fitness (best first)
-   Step 2: Take top K solutions (elite)
-   Step 3: Sort new population by fitness (worst first)
-   Step 4: Replace worst K solutions in new population with elite
+   Step 2: Calculate number of elite: num_selection = population_size * selection_percentage
+   Step 3: Copy top num_selection solutions directly to new generation
+   Step 4: Fill remaining slots with crossover/mutation offspring
 
-3. EXAMPLE:
-   Old Population: [Best(0.5), Good(1.0), OK(2.0), Bad(3.0), Worst(4.0)]
-   New Population: [New1(5.0), New2(6.0), New3(7.0), New4(8.0), New5(9.0)]
-   Elitism (K=2): Keep top 2 from old
+3. EXAMPLE (selection_percentage = 10%):
+   Population size = 10
+   num_selection = 10 * 0.10 = 1 solution
+   Old Population: [Best(0.5), Good(1.0), OK(2.0), Bad(3.0), Worst(4.0), ...]
+   → Copy Best(0.5) directly to new generation
+   → Create remaining 9 solutions via crossover/mutation
    
    Final: [Best(0.5), Good(1.0), New3(7.0), New4(8.0), New5(9.0)]
           ↑          ↑
@@ -2300,8 +2295,8 @@ HOW FITNESS EVALUATION WORKS:
             print(f"      Parent 1: Score = {safe_format_score(parent1.combined_score)}")
             print(f"      Parent 2: Score = {safe_format_score(parent2.combined_score)}")
         
-        # Crossover
-        child = crossover_order_based(parent1, parent2, crossover_rate=0.8)
+        # Crossover (always happens)
+        child = crossover_order_based(parent1, parent2)
         if child.paths != parent1.paths:
             crossovers += 1
             if i < 2:
@@ -2327,8 +2322,23 @@ HOW FITNESS EVALUATION WORKS:
     print(f"      Crossovers: {crossovers}/{len(test_pop)}")
     print(f"      Mutations: {mutations}/{len(test_pop)}")
     
-    # Elitism
-    final_pop = apply_elitism(test_pop, new_pop, elitism_count=2)
+    # Selection (Elitism) using selection_percentage approach
+    selection_percentage = 0.10  # 10% selection
+    num_selection = int(len(test_pop) * selection_percentage)
+    print(f"\n   Selection (Elitism): {num_selection} solutions ({selection_percentage*100:.0f}%)")
+    
+    # Sort old population to get best solutions
+    sorted_test_pop = sorted(test_pop, key=lambda x: x.combined_score if x.combined_score is not None else float('inf'))
+    
+    # Create final population: copy best solutions directly, then add offspring
+    final_pop = []
+    for i in range(num_selection):
+        final_pop.append(sorted_test_pop[i].copy())
+        print(f"      ✓ Copied {i+1}-th best solution (score: {safe_format_score(sorted_test_pop[i].combined_score)})")
+    
+    # Add remaining solutions from new_pop
+    final_pop.extend(new_pop[:len(test_pop) - num_selection])
+    
     final_best = min(final_pop, key=lambda x: x.combined_score if x.combined_score is not None else float('inf'))
     final_avg = sum(s.combined_score for s in final_pop if s.combined_score is not None) / len(final_pop)
     
@@ -2379,8 +2389,8 @@ b) Crossover: Combine parents to create child
     # Run Genetic Algorithm
     ga_results = genetic_algorithm(
         all_cells, free_cells, obstacles, grid_width, grid_height, num_robots,
-        population_size=5, generations=50, crossover_rate=0.8, mutation_rate=0.1, 
-        elitism_count=2, verbose=True
+        population_size=5, generations=50, 
+        verbose=True
     )
     
     # Extract results
