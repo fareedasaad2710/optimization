@@ -131,9 +131,9 @@ class RobotCoverageSolution:
         
         # Different penalties for different rule violations
         penalty_factors = {
-            'out_of_bounds': 1000,    # BIG penalty: robot goes outside grid
-            'obstacle_collision': 500, # MEDIUM penalty: robot hits obstacle  
-            'path_jump': 100          # SMALL penalty: robot jumps between non-adjacent cells
+            'out_of_bounds': 3000,    # BIG penalty: robot goes outside grid
+            'obstacle_collision': 2000, # MEDIUM penalty: robot hits obstacle  
+            'path_jump': 1000          # SMALL penalty: robot jumps between non-adjacent cells
         }
         
         # Check each violation and add appropriate penalty
