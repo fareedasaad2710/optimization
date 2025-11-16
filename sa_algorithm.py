@@ -131,9 +131,9 @@ class RobotCoverageSolution:
         
         # Different penalties for different rule violations
         penalty_factors = {
-            'out_of_bounds': 1000,    # BIG penalty: robot goes outside grid
-            'obstacle_collision': 500, # MEDIUM penalty: robot hits obstacle  
-            'path_jump': 100          # SMALL penalty: robot jumps between non-adjacent cells
+            'out_of_bounds': 3000,    # BIG penalty: robot goes outside grid
+            'obstacle_collision': 2000, # MEDIUM penalty: robot hits obstacle  
+            'path_jump': 1000          # SMALL penalty: robot jumps between non-adjacent cells
         }
         
         # Check each violation and add appropriate penalty
@@ -201,7 +201,7 @@ def generate_random_solution(all_cells, free_cells, obstacles, grid_width, grid_
     return RobotCoverageSolution(assignment, robot_paths, all_cells, 
                                free_cells, obstacles, grid_width, grid_height)
 
-def generate_neighbor_solution(current_solution):
+def generate_neighbor_solution(current_solution, verbose=False):
     """
     WHAT DOES THIS DO?
     - Creates a slightly different solution from the current one
@@ -233,11 +233,19 @@ def generate_neighbor_solution(current_solution):
     
     # Make sure both robots have at least one cell
     if len(robot1_cells) == 0 or len(robot2_cells) == 0:
+        if verbose:
+            print(f"   ⚠️  Cannot generate neighbor: Robot {robot1} has {len(robot1_cells)} cells, Robot {robot2} has {len(robot2_cells)} cells")
         return current_solution  # Can't swap, return original
     
     # Pick random cells from each robot
     cell1 = random.choice(robot1_cells)
     cell2 = random.choice(robot2_cells)
+    
+    if verbose:
+        print(f"   🔄 Generating Neighbor:")
+        print(f"      • Selected Robots: Robot {robot1} (has {len(robot1_cells)} cells) ↔ Robot {robot2} (has {len(robot2_cells)} cells)")
+        print(f"      • Swapping: Cell {cell1} (from Robot {robot1}) ↔ Cell {cell2} (from Robot {robot2})")
+        print(f"      • Before: Robot {robot1} path length = {len(neighbor.paths[robot1])}, Robot {robot2} path length = {len(neighbor.paths[robot2])}")
     
     # Swap the assignments (robot1 gets cell2, robot2 gets cell1)
     neighbor.assignment[cell1][robot1] = 0
@@ -253,6 +261,9 @@ def generate_neighbor_solution(current_solution):
                 robot_cells.append(cell_idx)
         neighbor.paths[robot_id] = robot_cells
     
+    if verbose:
+        print(f"      • After: Robot {robot1} path length = {len(neighbor.paths[robot1])}, Robot {robot2} path length = {len(neighbor.paths[robot2])}")
+    
     return neighbor
 
 def simulated_annealing(all_cells, free_cells, obstacles, grid_width, grid_height, num_robots,
@@ -262,10 +273,21 @@ def simulated_annealing(all_cells, free_cells, obstacles, grid_width, grid_heigh
     Returns: (best_solution, convergence_history)
     """
     
-    print(f"Starting Simulated Annealing...")
-    print(f"Parameters: T0={initial_temp}, cooling_rate={cooling_rate}, iterations={max_iterations}")
+    print(f"\n{'='*70}")
+    print(f"🔥 STARTING SIMULATED ANNEALING")
+    print(f"{'='*70}")
+    print(f"📋 Parameters:")
+    print(f"   • Initial Temperature (T0): {initial_temp}")
+    print(f"   • Cooling Rate: {cooling_rate}")
+    print(f"   • Max Iterations: {max_iterations}")
+    print(f"   • Grid Size: {grid_width}x{grid_height}")
+    print(f"   • Number of Robots: {num_robots}")
+    print(f"   • Free Cells: {len(free_cells)}")
+    print(f"   • Obstacles: {len(obstacles)}")
+    print(f"{'='*70}\n")
     
     # Step 1: Generate random starting solution
+    print(f"🔄 STEP 1: Generating Initial Random Solution...")
     current_solution = generate_random_solution(
         all_cells, free_cells, obstacles, grid_width, grid_height, num_robots
     )
@@ -277,9 +299,31 @@ def simulated_annealing(all_cells, free_cells, obstacles, grid_width, grid_heigh
     
     temperature = initial_temp  # Start hot (accepts bad solutions)
     
-    print(f"Initial solution: Coverage={current_solution.fitness['coverage_score']}, "
-          f"Balance={current_solution.fitness['balance_score']:.3f}, "
-          f"Combined={current_solution.combined_score:.3f}")
+    print(f"\n📊 Initial Solution Details:")
+    print(f"   • Coverage: {current_solution.fitness['coverage_score']}/{len(free_cells)} cells")
+    print(f"   • Balance Score: {current_solution.fitness['balance_score']:.3f} (lower = better)")
+    print(f"   • Combined Score: {current_solution.combined_score:.3f} (lower = better)")
+    print(f"   • Robot Distances: {current_solution.fitness.get('robot_distances', [])}")
+    
+    # Show initial assignments
+    print(f"\n   📍 Initial Robot Assignments:")
+    robot_cell_counts = {}
+    for robot_id in range(num_robots):
+        robot_cells = [i for i, row in enumerate(current_solution.assignment) if row[robot_id] == 1]
+        robot_cell_counts[robot_id] = len(robot_cells)
+        print(f"      Robot {robot_id}: {len(robot_cells)} cells, Path length: {len(current_solution.paths[robot_id]) if robot_id < len(current_solution.paths) else 0}")
+    
+    # Show violations if any
+    if current_solution.fitness.get('problems'):
+        print(f"\n   ⚠️  Initial Violations: {len(current_solution.fitness['problems'])}")
+        for i, problem in enumerate(current_solution.fitness['problems'][:5]):  # Show first 5
+            print(f"      {i+1}. {problem}")
+        if len(current_solution.fitness['problems']) > 5:
+            print(f"      ... and {len(current_solution.fitness['problems']) - 5} more")
+    else:
+        print(f"\n   ✅ No constraint violations in initial solution!")
+    
+    print(f"\n{'─'*70}")
     
     # Initialize convergence tracking
     convergence_history = {
@@ -295,27 +339,74 @@ def simulated_annealing(all_cells, free_cells, obstacles, grid_width, grid_heigh
     best_score = best_solution.combined_score if best_solution.combined_score is not None else float('inf')
     
     # Main SA loop - try to improve solution
+    print(f"🔄 STEP 2: Starting Main SA Loop ({max_iterations} iterations)...\n")
+    
+    accepted_count = 0
+    improved_count = 0
+    worse_accepted_count = 0
+    
     for iteration in range(max_iterations):
         # Step 2: Generate neighbor solution (slight change)
-        neighbor = generate_neighbor_solution(current_solution)
+        verbose_iteration = (iteration < 5) or (iteration % 100 == 0) or (iteration == max_iterations - 1)
+        neighbor = generate_neighbor_solution(current_solution, verbose=verbose_iteration)
         neighbor.evaluate()
         
         # Step 3: Calculate if neighbor is better or worse
         delta = neighbor.combined_score - current_solution.combined_score
         
+        # Detailed tracing for first few iterations
+        verbose_iteration = (iteration < 5) or (iteration % 100 == 0) or (iteration == max_iterations - 1)
+        
+        if verbose_iteration:
+            print(f"\n{'─'*70}")
+            print(f"🔄 Iteration {iteration}/{max_iterations-1}")
+            print(f"   Temperature: {temperature:.2f}")
+            print(f"   Current Score: {current_solution.combined_score:.3f}")
+            print(f"   Neighbor Score: {neighbor.combined_score:.3f}")
+            print(f"   Delta (Δ): {delta:.3f} ({'✅ Better' if delta < 0 else '❌ Worse'})")
+        
         # Step 4: Accept or reject neighbor
+        accepted = False
         if delta < 0:  # Neighbor is better - always accept
             current_solution = neighbor
+            accepted = True
+            accepted_count += 1
+            improved_count += 1
+            
+            if verbose_iteration:
+                print(f"   ✅ ACCEPTED (Better solution - always accept)")
+            
             if neighbor.combined_score < best_score:
+                old_best = best_score
                 best_solution = neighbor.copy()
                 best_score = neighbor.combined_score
+                improvement = old_best - best_score
+                
+                if verbose_iteration:
+                    print(f"   🎉 NEW BEST! Old: {old_best:.3f} → New: {best_score:.3f} (Improvement: {improvement:.3f})")
+                    print(f"      Coverage: {neighbor.fitness['coverage_score']}/{len(free_cells)}")
+                    print(f"      Balance: {neighbor.fitness['balance_score']:.3f}")
         else:  # Neighbor is worse - accept with probability
-            if random.random() < math.exp(-delta / temperature):
+            acceptance_prob = math.exp(-delta / temperature) if temperature > 0 else 0
+            random_val = random.random()
+            
+            if verbose_iteration:
+                print(f"   📊 Acceptance Probability: exp(-{delta:.3f}/{temperature:.2f}) = {acceptance_prob:.4f}")
+                print(f"   🎲 Random Value: {random_val:.4f}")
+            
+            if random_val < acceptance_prob:
                 current_solution = neighbor
+                accepted = True
+                accepted_count += 1
+                worse_accepted_count += 1
+                
+                if verbose_iteration:
+                    print(f"   ✅ ACCEPTED (Worse solution - accepted with probability {acceptance_prob:.4f})")
+            else:
+                if verbose_iteration:
+                    print(f"   ❌ REJECTED (Worse solution - probability too low)")
         
-        # Track 
-        
-        #MODIFIED
+        # Track convergence
         convergence_history['iteration'].append(iteration)
         convergence_history['best_score'].append(best_score)
         convergence_history['current_score'].append(current_solution.combined_score)
@@ -326,27 +417,72 @@ def simulated_annealing(all_cells, free_cells, obstacles, grid_width, grid_heigh
             convergence_history['best_balance'].append(best_solution.fitness['balance_score'])
         
         # Step 5: Cool down temperature (become more picky)
+        old_temp = temperature
         temperature *= cooling_rate
         
-        # Print progress every iteration
-        current_score = current_solution.combined_score if current_solution.combined_score is not None else 0
-        best_score = best_solution.combined_score if best_solution.combined_score is not None else 0
-        print(f"Iteration {iteration}: T={temperature:.2f}, "
-              f"Current={current_score:.3f}, "
-              f"Best={best_score:.3f}")
+        if verbose_iteration:
+            print(f"   🌡️  Temperature: {old_temp:.2f} → {temperature:.2f} (cooling rate: {cooling_rate})")
+        
+        # Print summary every 10 iterations (or last iteration)
+        if (iteration + 1) % 10 == 0 or iteration == max_iterations - 1:
+            acceptance_rate = (accepted_count / (iteration + 1)) * 100
+            print(f"\n📊 Progress Summary (Iteration {iteration+1}/{max_iterations}):")
+            print(f"   • Current Score: {current_solution.combined_score:.3f}")
+            print(f"   • Best Score: {best_score:.3f}")
+            print(f"   • Temperature: {temperature:.2f}")
+            print(f"   • Acceptance Rate: {acceptance_rate:.1f}% ({accepted_count}/{iteration+1})")
+            print(f"   • Improved Solutions: {improved_count}")
+            print(f"   • Worse Accepted: {worse_accepted_count}")
     
-    print(f"\nSA Complete!")
+    print(f"\n{'='*70}")
+    print(f"✅ SIMULATED ANNEALING COMPLETE!")
+    print(f"{'='*70}\n")
     
     # Make sure best solution is evaluated
     if best_solution.fitness is None:
         best_solution.evaluate()
     
+    # Final statistics
+    final_acceptance_rate = (accepted_count / max_iterations) * 100
+    initial_score = convergence_history['best_score'][0] if convergence_history['best_score'] else float('inf')
+    final_improvement = initial_score - best_score if initial_score != float('inf') else 0
+    
+    print(f"📊 FINAL STATISTICS:")
+    print(f"   • Total Iterations: {max_iterations}")
+    print(f"   • Solutions Accepted: {accepted_count} ({final_acceptance_rate:.1f}%)")
+    print(f"   • Improved Solutions: {improved_count}")
+    print(f"   • Worse Solutions Accepted: {worse_accepted_count}")
+    print(f"   • Initial Score: {initial_score:.3f}")
+    print(f"   • Final Best Score: {best_score:.3f}")
+    print(f"   • Total Improvement: {final_improvement:.3f} ({((final_improvement/initial_score)*100):.2f}% better)")
+    
     if best_solution.fitness is not None:
-        print(f"Best solution: Coverage={best_solution.fitness['coverage_score']}, "
-              f"Balance={best_solution.fitness['balance_score']:.3f}, "
-              f"Combined={best_solution.combined_score:.3f}")
+        print(f"\n🏆 BEST SOLUTION FOUND:")
+        print(f"   • Coverage: {best_solution.fitness['coverage_score']}/{len(free_cells)} cells ({best_solution.fitness['coverage_score']/len(free_cells)*100:.1f}%)")
+        print(f"   • Balance Score: {best_solution.fitness['balance_score']:.3f} (lower = better)")
+        print(f"   • Combined Score: {best_solution.combined_score:.3f} (lower = better)")
+        print(f"   • Robot Distances: {best_solution.fitness.get('robot_distances', [])}")
+        
+        # Show final assignments
+        print(f"\n   📍 Final Robot Assignments:")
+        for robot_id in range(num_robots):
+            robot_cells = [i for i, row in enumerate(best_solution.assignment) if row[robot_id] == 1]
+            path_len = len(best_solution.paths[robot_id]) if robot_id < len(best_solution.paths) else 0
+            print(f"      Robot {robot_id}: {len(robot_cells)} cells, Path: {path_len} cells")
+        
+        # Show violations if any
+        if best_solution.fitness.get('problems'):
+            print(f"\n   ⚠️  Constraint Violations: {len(best_solution.fitness['problems'])}")
+            for i, problem in enumerate(best_solution.fitness['problems'][:10]):  # Show first 10
+                print(f"      {i+1}. {problem}")
+            if len(best_solution.fitness['problems']) > 10:
+                print(f"      ... and {len(best_solution.fitness['problems']) - 10} more")
+        else:
+            print(f"\n   ✅ No constraint violations!")
     else:
-        print("Best solution evaluation failed")
+        print("\n❌ Best solution evaluation failed")
+    
+    print(f"\n{'='*70}\n")
     
     return best_solution, convergence_history
 

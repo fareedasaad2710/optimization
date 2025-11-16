@@ -356,6 +356,18 @@ def visualize_solution(solution, title="Multi-Robot Coverage Solution", save_pat
     else:
         paths_dict = {}
     
+    # Debug: Print path information to help diagnose visualization issues
+    print(f"\n🔍 Visualization Debug Info:")
+    print(f"   • Paths type: {type(solution.paths)}")
+    print(f"   • Paths dict keys: {list(paths_dict.keys())}")
+    print(f"   • Paths dict lengths: {[(robot_id, len(path)) for robot_id, path in paths_dict.items()]}")
+    print(f"   • Total path cells: {sum(len(path) for path in paths_dict.values())}")
+    print(f"   • Free cells: {len(solution.free_cells)}")
+    
+    # Check if paths are empty
+    if not paths_dict or all(len(path) == 0 for path in paths_dict.values()):
+        print(f"   ⚠️  WARNING: All paths are empty! Visualization may not show paths.")
+    
     # Create figure with 2 subplots
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 7))
     

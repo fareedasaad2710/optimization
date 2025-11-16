@@ -227,7 +227,7 @@ class RobotCoverageSolution:
     def copy(self):
         """Create a deep copy of this solution"""
         import copy as copy_module
-        return RobotCoverageSolution(
+        new_solution = RobotCoverageSolution(
             copy_module.deepcopy(self.assignment),
             copy_module.deepcopy(self.paths),  # ✅ Deep copy dictionary
             self.all_cells,
@@ -236,6 +236,12 @@ class RobotCoverageSolution:
             self.grid_width,
             self.grid_height
         )
+        # Preserve fitness and score if they exist (to avoid unnecessary re-evaluation)
+        if self.fitness is not None:
+            new_solution.fitness = copy_module.deepcopy(self.fitness)
+        if self.combined_score is not None:
+            new_solution.combined_score = self.combined_score
+        return new_solution
 
     def get_coverage_efficiency(self):
         """Performance Index 1: Coverage Efficiency (0-1, higher=better)"""
@@ -415,112 +421,152 @@ def crossover(parent1, parent2, crossover_rate=0.8):
     return child
 
 
-def crossover_ox1_path(parent1_path, parent2_path):
+def crossover_ox1_path(parent1_path, parent2_path, verbose=False):
     """
-    Standard OX1 (Order Crossover) for paths using TWO crossover points
+    Davis' Order Crossover (OX1) for paths using TWO crossover points
+    
+    SPECIFICATION:
+    - Select two points [p1, p2] in P(1)_r (parent1_path)
+    - Child inherits segment P(1)_r[p1:p2]
+    - Fill remaining positions with unused cells from P(2)_r in order,
+      preserving relative sequence (wrapping around)
+    - IMPORTANT: Preserves ALL unique cells from both parents (union) to maintain coverage
+    - Uses OX1 ordering but ensures no cells are lost
     
     Args:
-        parent1_path: List of cells (path from parent 1)
-        parent2_path: List of cells (path from parent 2)
+        parent1_path: List of cells (path from parent 1) - P(1)_r
+        parent2_path: List of cells (path from parent 2) - P(2)_r
+        verbose: If True, return detailed info for debugging
     
     Returns:
-        Child path created using OX1
+        Child path created using OX1 with ALL cells from both parents
+        If verbose=True, returns (child_path, debug_info)
     """
-    if len(parent1_path) < 3 or len(parent2_path) < 3:
-        # If too short, use simple one-point crossover
-        if len(parent1_path) < 2:
-            return parent2_path.copy()
-        crossover_point = random.randint(1, len(parent1_path) - 1)
-        child_path = parent1_path[:crossover_point].copy()
-        used_cells = set(child_path)
+    if len(parent1_path) == 0 and len(parent2_path) == 0:
+        return [] if not verbose else ([], {})
+    
+    if len(parent1_path) == 0:
+        result = parent2_path.copy()
+        return result if not verbose else (result, {'note': 'Parent1 empty, using parent2'})
+    if len(parent2_path) == 0:
+        result = parent1_path.copy()
+        return result if not verbose else (result, {'note': 'Parent2 empty, using parent1'})
+    
+    # Get ALL unique cells from both parents (union) - CRITICAL for maintaining coverage
+    all_unique_cells = list(set(parent1_path) | set(parent2_path))
+    
+    if len(parent1_path) < 2:
+        # If parent1 too short, use all cells but preserve parent2's order
+        result = []
+        used = set()
         for cell in parent2_path:
-            if cell not in used_cells:
-                child_path.append(cell)
-                if len(child_path) >= len(parent1_path):
-                    break
-        return child_path
+            if cell not in used:
+                result.append(cell)
+                used.add(cell)
+        # Add any cells from parent1 not in parent2
+        for cell in parent1_path:
+            if cell not in used:
+                result.append(cell)
+        return result if not verbose else (result, {'note': 'Parent1 too short, using union with parent2 order'})
     
-    # Standard OX1 with TWO crossover points
-    path_length = min(len(parent1_path), len(parent2_path))
+    debug_info = {}
     
-    # Select two crossover points (point1 < point2)
-    point1 = random.randint(0, path_length - 2)
-    point2 = random.randint(point1 + 1, path_length - 1)
+    # Standard OX1 with TWO crossover points on parent1
+    point1 = random.randint(0, max(0, len(parent1_path) - 2))
+    point2 = random.randint(point1 + 1, len(parent1_path) - 1)
+    
+    debug_info['point1'] = point1
+    debug_info['point2'] = point2
+    debug_info['parent1_length'] = len(parent1_path)
+    debug_info['parent2_length'] = len(parent2_path)
+    debug_info['union_size'] = len(all_unique_cells)
     
     # Step 1: Copy segment between point1 and point2 from parent1
-    child_path = [None] * path_length
     segment = parent1_path[point1:point2]
-    for i in range(point1, point2):
-        child_path[i] = parent1_path[i]
-    
+    child_path = segment.copy()
     used_cells = set(segment)
     
-    # Step 2: Fill remaining positions from parent2 in order (starting after point2, wrapping)
-    # Start from position after point2 in parent2
-    parent2_index = point2
-    child_index = point2
+    debug_info['segment'] = segment.copy()
+    debug_info['used_cells_after_segment'] = used_cells.copy()
     
-    # Fill positions after point2
-    while child_index < path_length:
-        if child_path[child_index] is None:
-            # Find next unused cell from parent2 (starting from parent2_index)
-            found = False
-            for _ in range(path_length):
-                cell = parent2_path[parent2_index % path_length]
-                if cell not in used_cells:
-                    child_path[child_index] = cell
-                    used_cells.add(cell)
-                    found = True
-                    break
-                parent2_index += 1
-            if not found:
-                break
-        child_index += 1
+    # Step 2: Fill remaining positions from parent2 in order (OX1 style)
+    # Start from position after point2 in parent2, wrapping around
+    # IMPORTANT: Fill to include ALL unique cells from both parents (not just parent1 length)
+    parent2_index = point2 % len(parent2_path) if len(parent2_path) > 0 else 0
     
-    # Fill positions before point1 (wrapping)
-    child_index = 0
-    while child_index < point1:
-        if child_path[child_index] is None:
-            found = False
-            for _ in range(path_length):
-                cell = parent2_path[parent2_index % path_length]
-                if cell not in used_cells:
-                    child_path[child_index] = cell
-                    used_cells.add(cell)
-                    found = True
-                    break
-                parent2_index += 1
-            if not found:
-                break
-        child_index += 1
+    debug_info['parent2_start_index'] = parent2_index
     
-    # Fill any remaining None values with unused cells from parent1
-    for i in range(path_length):
-        if child_path[i] is None:
+    # Fill remaining positions using parent2's order (OX1 style)
+    # Target: Include ALL cells from union, but use OX1 ordering
+    cells_from_parent2 = []
+    
+    # First, fill using parent2's order (OX1 style) up to union size
+    while len(child_path) < len(all_unique_cells):
+        # Try to get next unused cell from parent2 (wrapping around)
+        attempts = 0
+        found = False
+        start_index = parent2_index
+        
+        while attempts < len(parent2_path) and not found:
+            cell = parent2_path[parent2_index % len(parent2_path)]
+            if cell not in used_cells:
+                child_path.append(cell)
+                cells_from_parent2.append(cell)
+                used_cells.add(cell)
+                found = True
+            parent2_index = (parent2_index + 1) % len(parent2_path)
+            attempts += 1
+        
+        if not found:
+            # If no unused cell found from parent2, try parent1
             for cell in parent1_path:
-                if cell not in used_cells:
-                    child_path[i] = cell
+                if cell not in used_cells and len(child_path) < len(all_unique_cells):
+                    child_path.append(cell)
                     used_cells.add(cell)
                     break
+            else:
+                # If still nothing, we've exhausted both parents
+                break
     
+    # Safety check: Ensure ALL cells from union are included
+    missing_cells = set(all_unique_cells) - set(child_path)
+    if missing_cells:
+        # Add any missing cells at the end
+        child_path.extend(list(missing_cells))
+        debug_info['added_missing_cells'] = list(missing_cells)
+    
+    debug_info['cells_from_parent2'] = cells_from_parent2.copy()
+    debug_info['child_length'] = len(child_path)
+    debug_info['final_used_cells'] = set(child_path)
+    debug_info['union_preserved'] = len(set(child_path)) == len(all_unique_cells)
+    
+    if verbose:
+        return child_path, debug_info
     return child_path
 
-def crossover_ox1_assignment(parent1_assignment, parent2_assignment, num_robots):
+def crossover_ox1_assignment(parent1_assignment, parent2_assignment, num_robots, verbose=False):
     """
-    Standard OX1 (Order Crossover) for assignment matrix
+    Davis' Order Crossover (OX1) for assignment matrix
     
-    For each cell, we crossover which robot it's assigned to using OX1
+    SPECIFICATION:
+    - Select two crossover points [p1, p2]
+    - Child inherits segment A[p1:p2] from S1 (parent1)
+    - Remaining rows come from S2 (parent2) in order, wrapping around
     
     Args:
-        parent1_assignment: Assignment matrix from parent 1
-        parent2_assignment: Assignment matrix from parent 2
+        parent1_assignment: Assignment matrix from parent 1 (S1)
+        parent2_assignment: Assignment matrix from parent 2 (S2)
         num_robots: Number of robots
+        verbose: If True, return detailed info for debugging
     
     Returns:
         Child assignment matrix
+        If verbose=True, returns (child_assignment, debug_info)
     """
     num_cells = len(parent1_assignment)
     child_assignment = [[0] * num_robots for _ in range(num_cells)]
+    
+    debug_info = {}
     
     if num_cells < 3:
         # If too short, use simple one-point crossover
@@ -529,41 +575,67 @@ def crossover_ox1_assignment(parent1_assignment, parent2_assignment, num_robots)
             child_assignment[i] = parent1_assignment[i].copy()
         for i in range(crossover_point, num_cells):
             child_assignment[i] = parent2_assignment[i].copy()
-        return child_assignment
+        debug_info['note'] = f'Too short, using one-point crossover at {crossover_point}'
+        return (child_assignment, debug_info) if verbose else child_assignment
     
     # Standard OX1 with TWO crossover points
     point1 = random.randint(0, num_cells - 2)
     point2 = random.randint(point1 + 1, num_cells - 1)
     
+    debug_info['point1'] = point1
+    debug_info['point2'] = point2
+    debug_info['segment_range'] = f'[{point1}:{point2}]'
+    debug_info['segment_from_parent1'] = []
+    
     # Step 1: Copy segment between point1 and point2 from parent1
     for i in range(point1, point2):
         child_assignment[i] = parent1_assignment[i].copy()
+        debug_info['segment_from_parent1'].append(i)
     
     # Step 2: Fill remaining from parent2 (starting after point2, wrapping)
     parent2_index = point2
+    debug_info['parent2_start_index'] = parent2_index
+    debug_info['cells_from_parent2'] = []
     
     # Fill positions after point2
     for i in range(point2, num_cells):
         child_assignment[i] = parent2_assignment[parent2_index % num_cells].copy()
+        debug_info['cells_from_parent2'].append(i)
         parent2_index += 1
     
     # Fill positions before point1 (wrapping)
     for i in range(point1):
         child_assignment[i] = parent2_assignment[parent2_index % num_cells].copy()
+        debug_info['cells_from_parent2'].append(i)
         parent2_index += 1
     
+    if verbose:
+        return child_assignment, debug_info
     return child_assignment
 
-def crossover_order_based(parent1, parent2):
+def crossover_order_based(parent1, parent2, verbose=False, free_cells=None):
     """
-    CROSSOVER with random selection: Assignment OR Path
-    Uses Standard OX1 (two crossover points) for both
+    Davis' Order Crossover (OX1) with random selection: Assignment OR Path
     
+    SPECIFICATION:
     - Random number 0 or 1:
       - 0: Crossover ASSIGNMENT using OX1
+        * Select two points [p1, p2]
+        * Child inherits segment A[p1:p2] from S1
+        * Remaining rows from S2 in order (wrapping)
+        * Paths reconstructed to match new assignment
       - 1: Crossover PATH using OX1
+        * For each robot r, select two points [p1, p2] in P(1)_r
+        * Child inherits segment P(1)_r[p1:p2]
+        * Fill remaining with unused cells from P(2)_r in order
     
     NOTE: Crossover always happens (no probability check)
+    
+    Args:
+        parent1: Parent solution 1 (S1)
+        parent2: Parent solution 2 (S2)
+        verbose: If True, print detailed crossover steps
+        free_cells: List of free cell indices (for verbose output)
     """
     child = parent1.copy()
     num_robots = len(parent1.paths)
@@ -573,80 +645,229 @@ def crossover_order_based(parent1, parent2):
     
     # Store crossover type in child for verbose output
     child._crossover_type = crossover_type
+    child._crossover_debug = {}
+    
+    if verbose:
+        print(f"\n{'='*70}")
+        print(f"🔀 DAVIS' ORDER CROSSOVER (OX1) - DETAILED STEPS")
+        print(f"{'='*70}")
+        print(f"Random selection: {crossover_type} → {'ASSIGNMENT' if crossover_type == 0 else 'PATH'} Crossover")
+        print(f"\n📋 PARENT 1 (S1):")
+        print(f"   Score: {safe_format_score(parent1.combined_score)}")
+        if parent1.fitness:
+            print(f"   Coverage: {parent1.fitness.get('coverage_score', 'N/A')}")
+            print(f"   Balance: {parent1.fitness.get('balance_score', 'N/A'):.3f}")
+        print(f"   Assignment matrix (showing first 10 cells):")
+        for cell_idx in range(min(10, len(parent1.assignment))):
+            assigned_robots = [r for r in range(num_robots) if parent1.assignment[cell_idx][r] == 1]
+            print(f"      Cell {cell_idx}: Assigned to robots {assigned_robots}")
+        print(f"   Paths:")
+        for robot_id in range(num_robots):
+            path = parent1.paths.get(robot_id, [])
+            print(f"      Robot {robot_id}: {len(path)} cells → {path}")
+        
+        print(f"\n📋 PARENT 2 (S2):")
+        print(f"   Score: {safe_format_score(parent2.combined_score)}")
+        if parent2.fitness:
+            print(f"   Coverage: {parent2.fitness.get('coverage_score', 'N/A')}")
+            print(f"   Balance: {parent2.fitness.get('balance_score', 'N/A'):.3f}")
+        print(f"   Assignment matrix (showing first 10 cells):")
+        for cell_idx in range(min(10, len(parent2.assignment))):
+            assigned_robots = [r for r in range(num_robots) if parent2.assignment[cell_idx][r] == 1]
+            print(f"      Cell {cell_idx}: Assigned to robots {assigned_robots}")
+        print(f"   Paths:")
+        for robot_id in range(num_robots):
+            path = parent2.paths.get(robot_id, [])
+            print(f"      Robot {robot_id}: {len(path)} cells → {path}")
     
     if crossover_type == 0:
         # CROSSOVER ASSIGNMENT using OX1
-        child.assignment = crossover_ox1_assignment(
+        if verbose:
+            print(f"\n{'─'*70}")
+            print(f"🔀 ASSIGNMENT CROSSOVER (OX1)")
+            print(f"{'─'*70}")
+            print(f"Step 1: Select two crossover points [p1, p2] on assignment matrix")
+        
+        child.assignment, assign_debug = crossover_ox1_assignment(
             parent1.assignment, 
             parent2.assignment, 
-            num_robots
+            num_robots,
+            verbose=True
         )
+        child._crossover_debug['assignment'] = assign_debug
+        
+        if verbose:
+            print(f"   Selected points: p1={assign_debug['point1']}, p2={assign_debug['point2']}")
+            print(f"   Segment [{assign_debug['point1']}:{assign_debug['point2']}] inherited from Parent 1")
+            print(f"   Remaining cells from Parent 2 in order (wrapping)")
+            print(f"\n   Child Assignment (showing first 10 cells):")
+            for cell_idx in range(min(10, len(child.assignment))):
+                assigned_robots = [r for r in range(num_robots) if child.assignment[cell_idx][r] == 1]
+                p1_robots = [r for r in range(num_robots) if parent1.assignment[cell_idx][r] == 1]
+                p2_robots = [r for r in range(num_robots) if parent2.assignment[cell_idx][r] == 1]
+                source = "P1" if cell_idx in assign_debug['segment_from_parent1'] else "P2"
+                print(f"      Cell {cell_idx}: {assigned_robots} (from {source}, P1={p1_robots}, P2={p2_robots})")
         
         # Update paths based on new assignment
+        if verbose:
+            print(f"\nStep 2: Reconstruct paths to match new assignment")
+        
         for robot_id in range(num_robots):
             robot_cells = []
             for cell_idx in range(len(child.assignment)):
                 if child.assignment[cell_idx][robot_id] == 1:
                     robot_cells.append(cell_idx)
-            # Keep order from parent1 if possible, otherwise random
+            
+            # IMPORTANT: Ensure we have ALL cells assigned to this robot
+            # Keep order from parent1 if possible, otherwise use the order from robot_cells
             if robot_id in parent1.paths:
                 # Try to preserve order from parent1
                 ordered_cells = []
                 for cell in parent1.paths[robot_id]:
                     if cell in robot_cells:
                         ordered_cells.append(cell)
-                # Add any missing cells
+                # Add any missing cells (cells in assignment but not in parent1 path)
                 for cell in robot_cells:
                     if cell not in ordered_cells:
                         ordered_cells.append(cell)
                 child.paths[robot_id] = ordered_cells
             else:
+                # No parent1 path, use the order from assignment
                 child.paths[robot_id] = robot_cells.copy()
+            
+            # Safety check: ensure path contains ALL assigned cells
+            path_set = set(child.paths[robot_id])
+            assigned_set = set(robot_cells)
+            if path_set != assigned_set:
+                # Fix: add missing cells
+                missing = assigned_set - path_set
+                child.paths[robot_id].extend(list(missing))
+            
+            if verbose:
+                p1_path = parent1.paths.get(robot_id, [])
+                print(f"   Robot {robot_id}:")
+                print(f"      Assigned cells: {len(robot_cells)} → {robot_cells}")
+                print(f"      Path reconstructed: {len(child.paths[robot_id])} cells → {child.paths[robot_id]}")
+                print(f"      (Parent 1 path: {p1_path})")
         
     else:
         # CROSSOVER PATH using OX1 (standard two-point OX1)
+        if verbose:
+            print(f"\n{'─'*70}")
+            print(f"🔀 PATH CROSSOVER (OX1)")
+            print(f"{'─'*70}")
+            print(f"For each robot r, select two points [p1, p2] in P(1)_r")
+            print(f"Child inherits segment P(1)_r[p1:p2], then fills with unused cells from P(2)_r")
+        
+        child._crossover_debug['paths'] = {}
+        
         for robot_id in range(num_robots):
             # Validate robot exists in both parents
             if robot_id not in parent1.paths or robot_id not in parent2.paths:
+                # If robot doesn't exist in one parent, use the other parent's path
+                if robot_id in parent1.paths:
+                    child.paths[robot_id] = parent1.paths[robot_id].copy()
+                elif robot_id in parent2.paths:
+                    child.paths[robot_id] = parent2.paths[robot_id].copy()
+                if verbose:
+                    print(f"   Robot {robot_id}: Not in both parents, using existing path")
                 continue
             
             parent1_path = parent1.paths[robot_id]
             parent2_path = parent2.paths[robot_id]
             
-            # Skip if paths too short
-            if len(parent1_path) < 2 or len(parent2_path) < 2:
-                continue
+            if verbose:
+                print(f"\n   Robot {robot_id}:")
+                print(f"      Parent 1 path (P(1)_{robot_id}): {len(parent1_path)} cells → {parent1_path}")
+                print(f"      Parent 2 path (P(2)_{robot_id}): {len(parent2_path)} cells → {parent2_path}")
             
-            # Use standard OX1 (two crossover points)
-            child_path = crossover_ox1_path(parent1_path, parent2_path)
-            child.paths[robot_id] = child_path
+            # Handle empty or very short paths
+            if len(parent1_path) == 0 and len(parent2_path) == 0:
+                child.paths[robot_id] = []
+                if verbose:
+                    print(f"      Both paths empty, child path: []")
+                continue
+            elif len(parent1_path) == 0:
+                child.paths[robot_id] = parent2_path.copy()
+                if verbose:
+                    print(f"      Parent 1 empty, using Parent 2: {child.paths[robot_id]}")
+                continue
+            elif len(parent2_path) == 0:
+                child.paths[robot_id] = parent1_path.copy()
+                if verbose:
+                    print(f"      Parent 2 empty, using Parent 1: {child.paths[robot_id]}")
+                continue
+            else:
+                # Use standard OX1 (Davis' Order Crossover)
+                child_path, path_debug = crossover_ox1_path(parent1_path, parent2_path, verbose=True)
+                child.paths[robot_id] = child_path
+                child._crossover_debug['paths'][robot_id] = path_debug
+                
+                if verbose:
+                    print(f"      Selected points: p1={path_debug['point1']}, p2={path_debug['point2']}")
+                    print(f"      Segment from P(1): {path_debug['segment']}")
+                    print(f"      Cells from P(2) (in order): {path_debug['cells_from_parent2']}")
+                    print(f"      Child path: {len(child_path)} cells → {child_path}")
+                    print(f"      (Length preserved from Parent 1: {len(parent1_path)} = {len(child_path)})")
             
             # Update assignment to match new path
             for cell_idx in range(len(child.assignment)):
                 child.assignment[cell_idx][robot_id] = 0
             
-            for cell_idx in child_path:
+            for cell_idx in child.paths[robot_id]:
                 if cell_idx < len(child.assignment):
                     child.assignment[cell_idx][robot_id] = 1
     
     # Ensure assignment and paths are fully synchronized
     child.sync_assignment_with_paths()
     
+    # Evaluate child before returning
+    child.evaluate()
+    
+    if verbose:
+        print(f"\n{'─'*70}")
+        print(f"✅ CHILD CREATED")
+        print(f"{'─'*70}")
+        print(f"   Child Score: {safe_format_score(child.combined_score)}")
+        if child.fitness:
+            print(f"   Child Coverage: {child.fitness.get('coverage_score', 'N/A')}")
+            print(f"   Child Balance: {child.fitness.get('balance_score', 'N/A'):.3f}")
+        print(f"   Child Assignment (showing first 10 cells):")
+        for cell_idx in range(min(10, len(child.assignment))):
+            assigned_robots = [r for r in range(num_robots) if child.assignment[cell_idx][r] == 1]
+            print(f"      Cell {cell_idx}: Assigned to robots {assigned_robots}")
+        print(f"   Child Paths:")
+        for robot_id in range(num_robots):
+            path = child.paths.get(robot_id, [])
+            print(f"      Robot {robot_id}: {len(path)} cells → {path}")
+        print(f"\n   Comparison:")
+        print(f"      Parent 1 Score: {safe_format_score(parent1.combined_score)}")
+        print(f"      Parent 2 Score: {safe_format_score(parent2.combined_score)}")
+        print(f"      Child Score:    {safe_format_score(child.combined_score)}")
+        print(f"{'='*70}\n")
+    
     return child
 
 
 # Replace apply_crossover (around line 470):
 
-def apply_crossover(parent1, parent2):
+def apply_crossover(parent1, parent2, verbose=False, free_cells=None):
     """
-    Apply ONE-POINT ORDER-BASED CROSSOVER (OX1)
+    Apply Davis' Order Crossover (OX1)
     
-    This is the only crossover method used in this implementation.
-    Standard for path planning problems.
+    This uses crossover_order_based which implements Davis' Order Crossover
+    with random selection between Assignment and Path crossover.
     
-    NOTE: Crossover always happens (no probability check)
+    Args:
+        parent1: First parent solution (S1)
+        parent2: Second parent solution (S2)
+        verbose: If True, print detailed crossover steps
+        free_cells: List of free cell indices (for verbose output)
+    
+    Returns:
+        Child solution created through crossover
     """
-    return crossover_order_based(parent1, parent2)
+    return crossover_order_based(parent1, parent2, verbose=verbose, free_cells=free_cells)
 def mutate_robot_path(solution, robot_id):
     """
     Mutate a specific robot's path by swapping two cells
@@ -802,6 +1023,22 @@ def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height,
         population_size, all_cells, free_cells, obstacles, grid_width, grid_height, num_robots
     )
     
+    # Evaluate all solutions
+    for solution in population:
+        solution.evaluate()
+    
+    # Debug: Check path lengths in initial population
+    print(f"   ✅ Population initialized!")
+    if verbose:
+        print(f"   🔍 Initial Population Path Check (first 3 solutions):")
+        for idx, sol in enumerate(population[:3]):
+            total_path_cells = sum(len(path) for path in sol.paths.values())
+            print(f"      Solution {idx+1}: Total path cells = {total_path_cells}/{len(free_cells)}")
+            for robot_id, path in sol.paths.items():
+                print(f"         Robot {robot_id}: {len(path)} cells")
+        if len(population) > 3:
+            print(f"      ... (showing first 3 of {len(population)} solutions)")
+    
     # Find best solution in initial population
     best_solution = min(population, key=lambda x: x.combined_score if x.combined_score is not None else float('inf'))
     best_solution = best_solution.copy()
@@ -848,6 +1085,40 @@ def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height,
             print(f"🔄 GENERATION {generation}")
             print(f"{'─'*70}")
         
+        # DETAILED DEBUGGING FOR GENERATION 0
+        if verbose and generation == 0:
+            print(f"\n{'='*70}")
+            print(f"📋 GENERATION {generation} - DETAILED STEP-BY-STEP TRACE")
+            print(f"{'='*70}")
+            print(f"\n🔍 STEP 0: Current Population (Generation {generation})")
+            print(f"   Population Size: {len(population)}")
+            print(f"   Showing first 3 solutions with assignments and paths (showing all would be too long):")
+            for sol_idx, sol in enumerate(population[:3]):
+                print(f"\n   Solution {sol_idx + 1} (Score: {safe_format_score(sol.combined_score)}):")
+                total_path_cells = sum(len(path) for path in sol.paths.values())
+                print(f"      Total Path Cells: {total_path_cells}/{len(free_cells)}")
+                for robot_id in range(num_robots):
+                    # Get cells assigned to this robot
+                    assigned_cells = [cell_idx for cell_idx in free_cells if sol.assignment[cell_idx][robot_id] == 1]
+                    path_cells = sol.paths.get(robot_id, [])
+                    print(f"      Robot {robot_id}:")
+                    print(f"         Assignment: {len(assigned_cells)} cells → {assigned_cells}")
+                    print(f"         Path: {len(path_cells)} cells → {path_cells}")
+                    # Check consistency
+                    assigned_set = set(assigned_cells)
+                    path_set = set(path_cells)
+                    if assigned_set != path_set:
+                        missing_in_path = assigned_set - path_set
+                        extra_in_path = path_set - assigned_set
+                        if missing_in_path:
+                            print(f"         ⚠️  INCONSISTENCY: {len(missing_in_path)} cells in assignment but not in path: {missing_in_path}")
+                        if extra_in_path:
+                            print(f"         ⚠️  INCONSISTENCY: {len(extra_in_path)} cells in path but not in assignment: {extra_in_path}")
+                    else:
+                        print(f"         ✅ Assignment and Path are consistent")
+            if len(population) > 3:
+                print(f"\n   ... (showing first 3 of {len(population)} solutions)")
+        
         new_population = []
         gen_crossovers = 0
         gen_mutations = 0
@@ -862,7 +1133,7 @@ def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height,
         num_mutation = population_size - num_selection - num_crossover  # Remaining for mutation
         
         if verbose and generation < 3:
-            print(f"   🧬 Creating new population:")
+            print(f"\n   🧬 Creating new population:")
             print(f"      • {num_selection} solutions via Selection (Elitism) ({selection_percentage*100:.0f}%)")
             print(f"      • {num_crossover} solutions via Crossover ({crossover_percentage*100:.0f}%)")
             print(f"      • {num_mutation} solutions via Mutation ({mutation_percentage*100:.0f}%)")
@@ -873,28 +1144,72 @@ def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height,
         # Sort population by score (best = lowest score)
         sorted_population = sorted(population, key=lambda x: x.combined_score if x.combined_score is not None else float('inf'))
         
+        if verbose and generation == 0:
+            print(f"\n{'─'*70}")
+            print(f"🔍 STEP 1: SELECTION (Elitism) - Copying {num_selection} best solutions")
+            print(f"{'─'*70}")
+            print(f"   Sorting population by score (best = lowest)...")
+            print(f"   Top {num_selection} solutions will be copied directly to new generation")
+        
         for i in range(num_selection):
             # Copy the i-th best solution (elitism)
             elite_solution = sorted_population[i]
-            new_population.append(elite_solution.copy())
+            elite_copy = elite_solution.copy()
+            new_population.append(elite_copy)
             gen_selections += 1
-            if verbose and generation < 2 and i < 2:
+            
+            if verbose and generation == 0:
+                print(f"\n   Selection {i+1}/{num_selection} (Elitism):")
+                print(f"      • Rank: {i+1}-th best solution")
+                print(f"      • Score: {safe_format_score(elite_solution.combined_score)}")
+                print(f"      • Action: Copied directly to new population")
+                print(f"      • Details:")
+                total_path_cells = sum(len(path) for path in elite_solution.paths.values())
+                print(f"         Total Path Cells: {total_path_cells}/{len(free_cells)}")
+                for robot_id in range(num_robots):
+                    assigned_cells = [cell_idx for cell_idx in free_cells if elite_solution.assignment[cell_idx][robot_id] == 1]
+                    path_cells = elite_solution.paths.get(robot_id, [])
+                    print(f"         Robot {robot_id}: Assignment={len(assigned_cells)} cells, Path={len(path_cells)} cells")
+                    print(f"            Path: {path_cells}")
+            elif verbose and generation < 2 and i < 2:
                 print(f"      Selection {i+1} (Elitism): Copied {i+1}-th best solution (score: {safe_format_score(elite_solution.combined_score)})")
         
         # 2. CROSSOVER (80%): Create offspring through crossover
+        if verbose and generation == 0:
+            print(f"\n{'─'*70}")
+            print(f"🔍 STEP 2: CROSSOVER - Creating {num_crossover} offspring")
+            print(f"{'─'*70}")
+        
         for i in range(num_crossover):
             # Select parents using tournament selection
             parent1 = tournament_selection(population)
             parent2 = tournament_selection(population)
             
-            if verbose and generation < 2 and i < 2:
+            if verbose and generation == 0 and i < 3:  # Show first 3 crossovers in detail
+                print(f"\n   Crossover {i+1}/{num_crossover}:")
+                print(f"      Parent Selection (Tournament):")
+                print(f"         Parent 1: Score = {safe_format_score(parent1.combined_score)}")
+                for robot_id in range(num_robots):
+                    p1_assigned = [cell_idx for cell_idx in free_cells if parent1.assignment[cell_idx][robot_id] == 1]
+                    p1_path = parent1.paths.get(robot_id, [])
+                    print(f"            Robot {robot_id}: Assignment={len(p1_assigned)} cells, Path={len(p1_path)} cells")
+                print(f"         Parent 2: Score = {safe_format_score(parent2.combined_score)}")
+                for robot_id in range(num_robots):
+                    p2_assigned = [cell_idx for cell_idx in free_cells if parent2.assignment[cell_idx][robot_id] == 1]
+                    p2_path = parent2.paths.get(robot_id, [])
+                    print(f"            Robot {robot_id}: Assignment={len(p2_assigned)} cells, Path={len(p2_path)} cells")
+            elif verbose and generation == 0 and i == 3:
+                print(f"\n   ... (showing first 3 of {num_crossover} crossovers in detail)")
+            elif verbose and generation < 2 and i < 2:
                 print(f"      Crossover {i+1}:")
                 print(f"         • Parent 1 (score: {safe_format_score(parent1.combined_score)})")
                 print(f"         • Parent 2 (score: {safe_format_score(parent2.combined_score)})")
             
             # Create child through crossover (randomly: assignment or path)
             # NOTE: Crossover always happens (no probability check) - count all attempts
-            child = apply_crossover(parent1, parent2)
+            # Enable verbose output for Generation 0 to show detailed crossover steps
+            crossover_verbose = (verbose and generation == 0 and i < 2)  # Show first 2 crossovers in detail
+            child = apply_crossover(parent1, parent2, verbose=crossover_verbose, free_cells=free_cells)
             
             # Always count crossover attempt (crossover always happens now)
             gen_crossovers += 1
@@ -902,15 +1217,34 @@ def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height,
             # Check if crossover actually changed something (for verbose output only)
             did_change = (child.paths != parent1.paths) or (child.assignment != parent1.assignment)
             
-            if verbose and generation < 2 and i < 2:
+            if verbose and generation == 0 and i < 3:  # Show first 3 crossovers in detail
                 # Show which type of crossover was used
+                crossover_type = getattr(child, '_crossover_type', None)
+                if crossover_type == 0:
+                    print(f"      Crossover Type: ASSIGNMENT (Random: 0)")
+                    print(f"         Method: OX1 with two crossover points on assignment matrix")
+                elif crossover_type == 1:
+                    print(f"      Crossover Type: PATH (Random: 1)")
+                    print(f"         Method: OX1 with two crossover points on robot paths")
+                else:
+                    assignment_changed = (child.assignment != parent1.assignment)
+                    path_changed = (child.paths != parent1.paths)
+                    if assignment_changed and not path_changed:
+                        print(f"      Crossover Type: ASSIGNMENT (detected)")
+                    elif path_changed and not assignment_changed:
+                        print(f"      Crossover Type: PATH (detected)")
+                    else:
+                        print(f"      Crossover Type: ASSIGNMENT & PATH (detected)")
+                
+                if not did_change:
+                    print(f"      ⚠️  Note: Crossover applied but result identical to Parent 1")
+            elif verbose and generation < 2 and i < 2:
                 crossover_type = getattr(child, '_crossover_type', None)
                 if crossover_type == 0:
                     print(f"         • Random number: 0 → Crossover ASSIGNMENT using OX1 (two points)")
                 elif crossover_type == 1:
                     print(f"         • Random number: 1 → Crossover PATH using OX1 (two points)")
                 else:
-                    # Fallback: determine by what changed
                     assignment_changed = (child.assignment != parent1.assignment)
                     path_changed = (child.paths != parent1.paths)
                     if assignment_changed and not path_changed:
@@ -926,7 +1260,18 @@ def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height,
             # Evaluate child
             child.evaluate()
             
-            if verbose and generation < 2 and i < 2:
+            if verbose and generation == 0 and i < 3:  # Show first 3 crossovers in detail
+                print(f"      Child Created:")
+                print(f"         Score: {safe_format_score(child.combined_score)}")
+                total_path_cells = sum(len(path) for path in child.paths.values())
+                print(f"         Total Path Cells: {total_path_cells}/{len(free_cells)}")
+                for robot_id in range(num_robots):
+                    child_assigned = [cell_idx for cell_idx in free_cells if child.assignment[cell_idx][robot_id] == 1]
+                    child_path = child.paths.get(robot_id, [])
+                    print(f"         Robot {robot_id}: Assignment={len(child_assigned)} cells, Path={len(child_path)} cells")
+                    print(f"            Path: {child_path}")
+                print(f"      ✅ Child added to new population")
+            elif verbose and generation < 2 and i < 2:
                 print(f"         • 📊 Child score: {safe_format_score(child.combined_score)}")
             
             # Add to new population
@@ -936,24 +1281,68 @@ def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height,
         # Sort population by score (worst = highest score, best = lowest score)
         sorted_population_by_worst = sorted(population, key=lambda x: x.combined_score if x.combined_score is not None else float('inf'), reverse=True)
         
+        if verbose and generation == 0:
+            print(f"\n{'─'*70}")
+            print(f"🔍 STEP 3: MUTATION - Mutating {num_mutation} worst solutions")
+            print(f"{'─'*70}")
+            print(f"   Sorting population by worst score (worst = highest score)...")
+            print(f"   Will mutate the {num_mutation} worst solutions")
+        
         for i in range(num_mutation):
             # Pick the (i+1)-th worst solution (worst = index 0, second worst = index 1, etc.)
             worst_solution = sorted_population_by_worst[i]
+            
+            # Ensure worst_solution is evaluated (should be, but check to avoid N/A)
+            if worst_solution.combined_score is None:
+                worst_solution.evaluate()
+            
             mutated = worst_solution.copy()
             
             # Save paths before mutation for comparison
             paths_before = copy_module.deepcopy(mutated.paths)
             
+            if verbose and generation == 0:
+                print(f"\n   Mutation {i+1}/{num_mutation}:")
+                print(f"      Selected Solution: {i+1}-th worst (Rank: {i+1}, Score: {safe_format_score(worst_solution.combined_score)})")
+                print(f"      Before Mutation:")
+                total_path_cells_before = sum(len(path) for path in paths_before.values())
+                print(f"         Total Path Cells: {total_path_cells_before}/{len(free_cells)}")
+                for robot_id in range(num_robots):
+                    worst_assigned = [cell_idx for cell_idx in free_cells if worst_solution.assignment[cell_idx][robot_id] == 1]
+                    worst_path = paths_before.get(robot_id, [])
+                    print(f"         Robot {robot_id}: Assignment={len(worst_assigned)} cells, Path={len(worst_path)} cells")
+                    print(f"            Path: {worst_path}")
+            
             # Step 1: Generate random robot ID (0 to num_robots-1)
             num_robots = len(mutated.paths)
             robot_id = random.randint(0, num_robots - 1)
+            
+            if verbose and generation == 0:
+                print(f"      Mutation Process:")
+                print(f"         Step 1: Random robot selected: Robot {robot_id}")
+                print(f"         Step 2: Check if Robot {robot_id} path length > 2: {len(mutated.paths.get(robot_id, []))} > 2 = {len(mutated.paths.get(robot_id, [])) > 2}")
             
             # Step 2: Mutate that robot's path (if path length > 2)
             did_mutate = mutate_robot_path(mutated, robot_id)
             
             if did_mutate:
                 gen_mutations += 1
-                if verbose and generation < 2 and i < 2:
+                if verbose and generation == 0:
+                    print(f"         Step 3: Mutation SUCCESS - Swapped two positions in Robot {robot_id}'s path")
+                    print(f"      After Mutation:")
+                    total_path_cells_after = sum(len(path) for path in mutated.paths.values())
+                    print(f"         Total Path Cells: {total_path_cells_after}/{len(free_cells)}")
+                    for robot_id_check in range(num_robots):
+                        mutated_assigned = [cell_idx for cell_idx in free_cells if mutated.assignment[cell_idx][robot_id_check] == 1]
+                        mutated_path = mutated.paths.get(robot_id_check, [])
+                        if robot_id_check == robot_id:
+                            print(f"         Robot {robot_id_check} (MUTATED): Assignment={len(mutated_assigned)} cells, Path={len(mutated_path)} cells")
+                            print(f"            Path Before: {paths_before.get(robot_id, [])}")
+                            print(f"            Path After:  {mutated_path}")
+                        else:
+                            print(f"         Robot {robot_id_check}: Assignment={len(mutated_assigned)} cells, Path={len(mutated_path)} cells")
+                            print(f"            Path: {mutated_path}")
+                elif verbose and generation < 2 and i < 2:
                     print(f"      Mutation {i+1}:")
                     print(f"         • Selected: {i+1}-th worst solution (score: {safe_format_score(worst_solution.combined_score)})")
                     print(f"         • Random robot selected: Robot {robot_id}")
@@ -965,10 +1354,25 @@ def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height,
                 valid_robots = [r for r in range(num_robots) if len(mutated.paths.get(r, [])) > 2]
                 if valid_robots:
                     robot_id = random.choice(valid_robots)
+                    if verbose and generation == 0:
+                        print(f"         Step 3: Mutation FAILED (path too short), trying Robot {robot_id} instead")
                     did_mutate = mutate_robot_path(mutated, robot_id)
                     if did_mutate:
                         gen_mutations += 1
-                        if verbose and generation < 2 and i < 2:
+                        if verbose and generation == 0:
+                            print(f"         Step 4: Mutation SUCCESS on Robot {robot_id}")
+                            print(f"      After Mutation:")
+                            total_path_cells_after = sum(len(path) for path in mutated.paths.values())
+                            print(f"         Total Path Cells: {total_path_cells_after}/{len(free_cells)}")
+                            for robot_id_check in range(num_robots):
+                                mutated_assigned = [cell_idx for cell_idx in free_cells if mutated.assignment[cell_idx][robot_id_check] == 1]
+                                mutated_path = mutated.paths.get(robot_id_check, [])
+                                if robot_id_check == robot_id:
+                                    print(f"         Robot {robot_id_check} (MUTATED): Assignment={len(mutated_assigned)} cells, Path={len(mutated_path)} cells")
+                                    print(f"            Path: {mutated_path}")
+                                else:
+                                    print(f"         Robot {robot_id_check}: Assignment={len(mutated_assigned)} cells, Path={len(mutated_path)} cells")
+                        elif verbose and generation < 2 and i < 2:
                             print(f"      Mutation {i+1}:")
                             print(f"         • Selected: {i+1}-th worst solution (score: {safe_format_score(worst_solution.combined_score)})")
                             print(f"         • Robot {robot_id} path mutated (original robot had path length <= 2)")
@@ -977,7 +1381,10 @@ def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height,
             # Evaluate mutated solution
             mutated.evaluate()
             
-            if verbose and generation < 2 and i < 2:
+            if verbose and generation == 0:
+                print(f"      Mutated Solution Score: {safe_format_score(mutated.combined_score)}")
+                print(f"      ✅ Mutated solution added to new population")
+            elif verbose and generation < 2 and i < 2:
                 print(f"         • 📊 Mutated score: {safe_format_score(mutated.combined_score)}")
             
             # Add to new population
@@ -992,6 +1399,70 @@ def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height,
             print(f"      • Selections:  {gen_selections}/{num_selection} (10% - Elitism)")
             print(f"      • Crossovers:  {gen_crossovers}/{num_crossover} (80%)")
             print(f"      • Mutations:   {gen_mutations}/{num_mutation} (10%)")
+        
+        # DETAILED SUMMARY FOR GENERATION 0 - Show final new population
+        if verbose and generation == 0:
+            print(f"\n{'─'*70}")
+            print(f"🔍 STEP 4: FINAL NEW POPULATION (Generation {generation + 1})")
+            print(f"{'─'*70}")
+            print(f"   New Population Size: {len(new_population)}")
+            print(f"   Composition:")
+            print(f"      • {gen_selections} solutions from Selection (Elitism)")
+            print(f"      • {gen_crossovers} solutions from Crossover")
+            print(f"      • {gen_mutations} solutions from Mutation")
+            print(f"   Showing first 5 solutions that will be passed to Generation {generation + 1} (showing all would be too long):")
+            
+            for sol_idx, sol in enumerate(new_population[:5]):
+                # Ensure solution is evaluated before displaying
+                if sol.combined_score is None:
+                    sol.evaluate()
+                
+                print(f"\n   New Solution {sol_idx + 1} (Score: {safe_format_score(sol.combined_score)}):")
+                total_path_cells = sum(len(path) for path in sol.paths.values())
+                print(f"      Total Path Cells: {total_path_cells}/{len(free_cells)}")
+                print(f"      Source: ", end="")
+                if sol_idx < gen_selections:
+                    print(f"Selection (Elitism) - Rank {sol_idx + 1} from Generation {generation}")
+                elif sol_idx < gen_selections + gen_crossovers:
+                    crossover_idx = sol_idx - gen_selections
+                    print(f"Crossover - Child {crossover_idx + 1} from Generation {generation}")
+                else:
+                    mutation_idx = sol_idx - gen_selections - gen_crossovers
+                    print(f"Mutation - Mutated solution {mutation_idx + 1} from Generation {generation}")
+                
+                for robot_id in range(num_robots):
+                    assigned_cells = [cell_idx for cell_idx in free_cells if sol.assignment[cell_idx][robot_id] == 1]
+                    path_cells = sol.paths.get(robot_id, [])
+                    print(f"      Robot {robot_id}: Assignment={len(assigned_cells)} cells, Path={len(path_cells)} cells")
+                    print(f"         Path: {path_cells}")
+                    # Check consistency
+                    assigned_set = set(assigned_cells)
+                    path_set = set(path_cells)
+                    if assigned_set != path_set:
+                        missing_in_path = assigned_set - path_set
+                        extra_in_path = path_set - assigned_set
+                        if missing_in_path:
+                            print(f"         ⚠️  INCONSISTENCY: {len(missing_in_path)} cells in assignment but not in path: {missing_in_path}")
+                        if extra_in_path:
+                            print(f"         ⚠️  INCONSISTENCY: {len(extra_in_path)} cells in path but not in assignment: {extra_in_path}")
+                    else:
+                        print(f"         ✅ Assignment and Path are consistent")
+            
+            if len(new_population) > 5:
+                print(f"\n   ... (showing first 5 of {len(new_population)} solutions)")
+            
+            # Summary statistics
+            print(f"\n   📊 Summary Statistics for New Population:")
+            new_scores = [s.combined_score if s.combined_score is not None else float('inf') for s in new_population]
+            new_total_paths = [sum(len(path) for path in s.paths.values()) for s in new_population]
+            print(f"      • Score Range: {safe_format_score(min(new_scores))} to {safe_format_score(max(new_scores))}")
+            print(f"      • Average Score: {safe_format_score(sum(new_scores) / len(new_scores))}")
+            print(f"      • Path Cells Range: {min(new_total_paths)} to {max(new_total_paths)} (should be ~{len(free_cells)})")
+            print(f"      • Average Path Cells: {sum(new_total_paths) / len(new_total_paths):.1f}")
+            
+            print(f"\n{'='*70}")
+            print(f"✅ GENERATION {generation} COMPLETE - New population ready for Generation {generation + 1}")
+            print(f"{'='*70}\n")
         
         # Step 4: Update population
         population = new_population
@@ -1072,6 +1543,10 @@ def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height,
     print("\n" + "="*80)
     print("📊 GENERATING VISUALIZATIONS")
     print("="*80)
+
+    # Ensure results/figures directory exists
+    import os
+    os.makedirs("results/figures", exist_ok=True)
 
     # 1. Plot convergence history
     plot_convergence_history(
