@@ -84,7 +84,6 @@ def case_study_1_small_grid():
         all_cells, free_cells, obstacles,
         grid_width, grid_height, num_robots,
         **sa_params,
-        verbose=True
     )
     
     # Generate visualizations
@@ -223,7 +222,6 @@ def case_study_2_medium_grid():
         all_cells, free_cells, obstacles,
         grid_width, grid_height, num_robots,
         **sa_params,
-        verbose=True
     )
     
     # Generate visualizations
@@ -353,7 +351,6 @@ def case_study_3_large_grid():
         all_cells, free_cells, obstacles,
         grid_width, grid_height, num_robots,
         **sa_params,
-        verbose=True
     )
     
     # Generate visualizations
@@ -483,7 +480,6 @@ def case_study_4_many_robots():
         all_cells, free_cells, obstacles,
         grid_width, grid_height, num_robots,
         **sa_params,
-        verbose=True
     )
     
     # Generate visualizations
@@ -655,7 +651,6 @@ def case_study_1_small_grid():
         all_cells, free_cells, obstacles,
         grid_width, grid_height, num_robots,
         **sa_params,
-        verbose=True
     )
     
     # Generate visualizations
@@ -794,7 +789,6 @@ def case_study_2_medium_grid():
         all_cells, free_cells, obstacles,
         grid_width, grid_height, num_robots,
         **sa_params,
-        verbose=True
     )
     
     # Generate visualizations
@@ -924,7 +918,6 @@ def case_study_3_large_grid():
         all_cells, free_cells, obstacles,
         grid_width, grid_height, num_robots,
         **sa_params,
-        verbose=True
     )
     
     # Generate visualizations
@@ -1054,7 +1047,6 @@ def case_study_4_many_robots():
         all_cells, free_cells, obstacles,
         grid_width, grid_height, num_robots,
         **sa_params,
-        verbose=True
     )
     
     # Generate visualizations
