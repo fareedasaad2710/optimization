@@ -1108,7 +1108,7 @@ def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height,
     if best_solution.fitness:
         plot_robot_paths(
             best_solution,
-            grid_size=(grid_rows, grid_cols),
+            grid_size=(grid_height, grid_width),
             title=f"Best Solution - Score: {safe_format_score(best_score)}",
             save_path="results/figures/ga_best_solution.png"
         )
@@ -1116,7 +1116,7 @@ def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height,
         # 3. Plot coverage heatmap
         plot_coverage_heatmap(
             best_solution,
-            grid_size=(grid_rows, grid_cols),
+            grid_size=(grid_height, grid_width),
             title="Coverage Distribution",
             save_path="results/figures/ga_coverage_heatmap.png"
         )
@@ -1433,6 +1433,44 @@ def compare_parameter_results(results):
         print(f"\n  ✓ Best {param_name}: {best_entry[0]} (Score: {safe_format_score(best_entry[1]['combined_score'])})")
     
     print("\n" + "="*70 + "\n")
+
+def analyze_parameter_effects(results, parameter_name, save_path=None):
+    """
+    Analyze the effect of a specific GA parameter on performance.
+
+    Args:
+        results: List of dictionaries containing results for different parameter values.
+        parameter_name: Name of the parameter being analyzed.
+        save_path: Optional path to save the figure.
+    """
+    import matplotlib.pyplot as plt
+
+    parameter_values = [r[parameter_name] for r in results]
+    scores = [r['best_score'] for r in results]
+    coverage = [r['coverage_efficiency'] for r in results]
+    balance = [r['workload_balance_index'] for r in results]
+
+    fig, ax1 = plt.subplots(figsize=(10, 6))
+
+    ax1.set_xlabel(parameter_name)
+    ax1.set_ylabel('Best Score', color='tab:blue')
+    ax1.plot(parameter_values, scores, 'o-', color='tab:blue', label='Best Score')
+    ax1.tick_params(axis='y', labelcolor='tab:blue')
+
+    ax2 = ax1.twinx()
+    ax2.set_ylabel('Performance Metrics', color='tab:green')
+    ax2.plot(parameter_values, coverage, 's-', color='tab:green', label='Coverage Efficiency')
+    ax2.plot(parameter_values, balance, 'd-', color='tab:orange', label='Workload Balance')
+    ax2.tick_params(axis='y', labelcolor='tab:green')
+
+    fig.tight_layout()
+    if save_path:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        print(f"✅ Parameter analysis plot saved to {save_path}")
+    else:
+        plt.show()
+
+    plt.close()
 
 # Example usage
 if __name__ == "__main__":
