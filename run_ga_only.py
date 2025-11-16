@@ -1,10 +1,4 @@
-"""
-Simple script to run Genetic Algorithm (GA) only on a case study
-No Simulated Annealing (SA) - just GA!
 
-Usage:
-    python3 run_ga_only.py
-"""
 
 from GA import genetic_algorithm
 from visualization import visualize_solution, plot_convergence_history
@@ -218,7 +212,6 @@ def run_ga_case_study_2():
 
 
 def run_ga_case_study_3():
-    """Run GA on Case Study 3: Large Grid (10x10, 5 Robots)"""
     
     print("\n" + "="*80)
     print("RUNNING GA ONLY - CASE STUDY 3: LARGE GRID (10x10, 5 Robots)")

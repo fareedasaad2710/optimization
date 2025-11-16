@@ -1,25 +1,3 @@
-"""
-Genetic Algorithm (GA) for Multi-Robot Coverage Path Planning
-=============================================================
-
-WHAT IS GENETIC ALGORITHM?
-- It's like evolution - start with random solutions (population)
-- Select the best ones (survival of the fittest)
-- Combine them (crossover - like parents having children)
-- Add random changes (mutation - like genetic mutations)
-- Keep the best ones (elitism - best solutions always survive)
-- Repeat until we find a good solution
-
-THE FORMULA WE USE (Same as SA):
-J = w1(1 - coverage) + w2(imbalance) + penalty
-
-GA PARAMETERS:
-- Population Size: Number of solutions in each generation
-- Generations: How many times we evolve
-- Crossover Rate: Probability of combining two solutions
-- Mutation Rate: Probability of random changes
-- Elitism: Keep best solutions in each generation
-"""
 
 import math
 import random
@@ -34,16 +12,7 @@ from visualization import (
 
 # Add this helper function after imports
 def safe_format_score(score, decimals=3):
-    """
-    Safely format a score value, handling None and inf
-    
-    Args:
-        score: Score value (can be None, inf, or float)
-        decimals: Number of decimal places
-    
-    Returns:
-        Formatted string
-    """
+
     if score is None:
         return "N/A"
     elif score == float('inf'):
@@ -91,28 +60,7 @@ def convert_cells_to_objects(all_cells):
     return result
 
 class RobotCoverageSolution:
-    """
-    WHAT IS THIS CLASS?
-    - It's like a container that holds one possible solution
-    
-    IMPORTANT: A SOLUTION CONSISTS OF TWO COMPONENTS:
-    1. ASSIGNMENT: assignment[cell_idx][robot_id] = which robot covers which cell
-       - This is a matrix: for each cell, which robot(s) it's assigned to
-       - Format: list[list[int]] where assignment[i][r] = 1 means cell i is assigned to robot r
-       - ✅ SAME FORMAT as problem_formulation.py and sa_algorithm.py
-       - ✅ This is our DECISION VARIABLE - we cannot change this representation!
-    
-    2. PATHS: paths[robot_id] = [cell1, cell2, ...] = order in which robot visits its cells
-       - This is a dictionary: {robot_id: [list of cells in order]}
-       - Format: dict[int, list[int]] where paths[r] = [c1, c2, ...] means robot r visits c1, then c2, etc.
-       - ✅ SAME FORMAT as problem_formulation.py (expects dict)
-    
-    CRITICAL: Assignment and Paths must be CONSISTENT!
-    - If cell X is in robot R's path, then assignment[X][R] must be 1
-    - If assignment[X][R] = 1, then cell X should be in robot R's path
-    - Use sync_assignment_with_paths() to ensure consistency after operations
-    """
-    
+
     def __init__(self, assignment, paths, all_cells, free_cells, obstacles, grid_width, grid_height):
         # Store all the data about this solution
         self.assignment = copy.deepcopy(assignment)  # Which robot covers which cell
@@ -290,14 +238,7 @@ class RobotCoverageSolution:
         }
 
 def generate_random_solution(all_cells, free_cells, obstacles, grid_width, grid_height, num_robots):
-    """
-    Generate a random solution for robot coverage problem
-    
-    Returns:
-        RobotCoverageSolution with:
-        - assignment: list[list[int]] - which robot covers which cell
-        - paths: dict[int, list[int]] - {robot_id: [cell1, cell2, ...]}
-    """
+
     total_cells = len(all_cells)
     
     # Step 1: Create assignment matrix
@@ -342,12 +283,7 @@ def generate_random_solution(all_cells, free_cells, obstacles, grid_width, grid_
     return solution
 
 def initialize_population(population_size, all_cells, free_cells, obstacles, grid_width, grid_height, num_robots):
-    """
-    WHAT DOES THIS DO?
-    - Creates a population of random solutions
-    - Like creating a group of random robot arrangements
-    - This is generation 0 (the starting generation)
-    """
+
     population = []
     for _ in range(population_size):
         solution = generate_random_solution(
@@ -359,12 +295,7 @@ def initialize_population(population_size, all_cells, free_cells, obstacles, gri
     return population
 
 def tournament_selection(population, tournament_size=3):
-    """
-    WHAT DOES THIS DO?
-    - Selects a solution using tournament selection
-    - Like a mini-competition: pick random solutions, best one wins
-    - This is how we choose "parents" for crossover
-    """
+
     # Pick random solutions for tournament
     tournament = random.sample(population, min(tournament_size, len(population)))
     
@@ -374,22 +305,7 @@ def tournament_selection(population, tournament_size=3):
     return winner
 
 def crossover(parent1, parent2, crossover_rate=0.8):
-    """
-    WHAT DOES THIS DO?
-    - PATH-BASED CROSSOVER: Combines robot paths from two parents
-    - Each robot's path comes from either parent1 or parent2
-    - This preserves path structure better than cell-by-cell crossover
-    
-    HOW PATH-BASED CROSSOVER WORKS:
-    - For each robot, randomly choose to inherit path from parent1 or parent2
-    - Example: Robot 0 from Parent1, Robot 1 from Parent2, Robot 2 from Parent1
-    - This maintains path continuity and feasibility
-    
-    CHROMOSOME REPRESENTATION:
-    - Chromosome = collection of robot paths
-    - Gene = one robot's complete path
-    - Crossover = swapping entire paths between parents
-    """
+
     if random.random() > crossover_rate:
         return parent1.copy()  # No crossover, return parent1
     
@@ -422,26 +338,7 @@ def crossover(parent1, parent2, crossover_rate=0.8):
 
 
 def crossover_ox1_path(parent1_path, parent2_path, verbose=False):
-    """
-    Davis' Order Crossover (OX1) for paths using TWO crossover points
-    
-    SPECIFICATION:
-    - Select two points [p1, p2] in P(1)_r (parent1_path)
-    - Child inherits segment P(1)_r[p1:p2]
-    - Fill remaining positions with unused cells from P(2)_r in order,
-      preserving relative sequence (wrapping around)
-    - IMPORTANT: Preserves ALL unique cells from both parents (union) to maintain coverage
-    - Uses OX1 ordering but ensures no cells are lost
-    
-    Args:
-        parent1_path: List of cells (path from parent 1) - P(1)_r
-        parent2_path: List of cells (path from parent 2) - P(2)_r
-        verbose: If True, return detailed info for debugging
-    
-    Returns:
-        Child path created using OX1 with ALL cells from both parents
-        If verbose=True, returns (child_path, debug_info)
-    """
+
     if len(parent1_path) == 0 and len(parent2_path) == 0:
         return [] if not verbose else ([], {})
     
@@ -545,24 +442,7 @@ def crossover_ox1_path(parent1_path, parent2_path, verbose=False):
     return child_path
 
 def crossover_ox1_assignment(parent1_assignment, parent2_assignment, num_robots, verbose=False):
-    """
-    Davis' Order Crossover (OX1) for assignment matrix
-    
-    SPECIFICATION:
-    - Select two crossover points [p1, p2]
-    - Child inherits segment A[p1:p2] from S1 (parent1)
-    - Remaining rows come from S2 (parent2) in order, wrapping around
-    
-    Args:
-        parent1_assignment: Assignment matrix from parent 1 (S1)
-        parent2_assignment: Assignment matrix from parent 2 (S2)
-        num_robots: Number of robots
-        verbose: If True, return detailed info for debugging
-    
-    Returns:
-        Child assignment matrix
-        If verbose=True, returns (child_assignment, debug_info)
-    """
+ 
     num_cells = len(parent1_assignment)
     child_assignment = [[0] * num_robots for _ in range(num_cells)]
     
@@ -614,29 +494,7 @@ def crossover_ox1_assignment(parent1_assignment, parent2_assignment, num_robots,
     return child_assignment
 
 def crossover_order_based(parent1, parent2, verbose=False, free_cells=None):
-    """
-    Davis' Order Crossover (OX1) with random selection: Assignment OR Path
-    
-    SPECIFICATION:
-    - Random number 0 or 1:
-      - 0: Crossover ASSIGNMENT using OX1
-        * Select two points [p1, p2]
-        * Child inherits segment A[p1:p2] from S1
-        * Remaining rows from S2 in order (wrapping)
-        * Paths reconstructed to match new assignment
-      - 1: Crossover PATH using OX1
-        * For each robot r, select two points [p1, p2] in P(1)_r
-        * Child inherits segment P(1)_r[p1:p2]
-        * Fill remaining with unused cells from P(2)_r in order
-    
-    NOTE: Crossover always happens (no probability check)
-    
-    Args:
-        parent1: Parent solution 1 (S1)
-        parent2: Parent solution 2 (S2)
-        verbose: If True, print detailed crossover steps
-        free_cells: List of free cell indices (for verbose output)
-    """
+   
     child = parent1.copy()
     num_robots = len(parent1.paths)
     
@@ -852,33 +710,10 @@ def crossover_order_based(parent1, parent2, verbose=False, free_cells=None):
 # Replace apply_crossover (around line 470):
 
 def apply_crossover(parent1, parent2, verbose=False, free_cells=None):
-    """
-    Apply Davis' Order Crossover (OX1)
-    
-    This uses crossover_order_based which implements Davis' Order Crossover
-    with random selection between Assignment and Path crossover.
-    
-    Args:
-        parent1: First parent solution (S1)
-        parent2: Second parent solution (S2)
-        verbose: If True, print detailed crossover steps
-        free_cells: List of free cell indices (for verbose output)
-    
-    Returns:
-        Child solution created through crossover
-    """
+
     return crossover_order_based(parent1, parent2, verbose=verbose, free_cells=free_cells)
 def mutate_robot_path(solution, robot_id):
-    """
-    Mutate a specific robot's path by swapping two cells
-    
-    Args:
-        solution: RobotCoverageSolution to mutate
-        robot_id: Which robot's path to mutate (0 to num_robots-1)
-    
-    Returns:
-        True if mutation was applied, False otherwise
-    """
+
     if robot_id not in solution.paths:
         return False
     
@@ -908,12 +743,7 @@ def mutate_robot_path(solution, robot_id):
     return True  # Mutation succeeded
 
 def mutate(solution, mutation_rate=0.1):
-    """
-    WHAT DOES THIS DO?
-    - PATH-BASED MUTATION: Modifies robot paths directly
-    - Mutation Type: Swap two cells within same robot's path (path reordering)
-    - This mutation only changes the order of cells in a robot's path, not which cells are assigned
-    """
+
     if random.random() > mutation_rate:
         return solution  # No mutation
     
@@ -938,11 +768,7 @@ def mutate(solution, mutation_rate=0.1):
 
 
 def mutate_path_swap(solution, mutation_rate=0.1):
-    """
-    ALTERNATIVE MUTATION: Simple path segment swap
-    - Swaps a segment of path between two robots
-    - Good for exploring different workload distributions
-    """
+
     if random.random() > mutation_rate:
         return solution
     
@@ -996,14 +822,7 @@ def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height,
                       population_size=5, generations=100, 
                       verbose=True, selection_percentage=0.10, 
                       crossover_percentage=0.80, mutation_percentage=0.10):
-    """
-    Genetic Algorithm for robot coverage problem
-    
-    Args:
-        verbose: If True, prints detailed logs of GA operations
-    """
-    
-    print(f"\n{'='*70}")
+   
     print(f"🧬 STARTING GENETIC ALGORITHM")
     print(f"{'='*70}")
     print(f"📋 Parameters:")
@@ -1634,12 +1453,7 @@ def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height,
     }
 
 def print_ga_results(solution):
-    """
-    WHAT DOES THIS DO?
-    - Prints detailed results of GA solution
-    - Shows coverage, balance, violations, assignments, and paths
-    - Helps us understand how good the solution is
-    """
+
     print("\n" + "="*60)
     print("GENETIC ALGORITHM RESULTS")
     print("="*60)
@@ -1676,10 +1490,7 @@ def print_ga_results(solution):
 
 def test_ga_parameters(all_cells, free_cells, obstacles, grid_width, grid_height, num_robots, 
                        test_name="Parameter Sensitivity Test"):
-    """
-    Test GA with different parameter configurations
-    REQUIRED for Milestone 4 - Parameter Analysis
-    """
+ 
     results = {}
     
     print(f"\n{'='*70}")
@@ -1770,10 +1581,7 @@ def test_ga_parameters(all_cells, free_cells, obstacles, grid_width, grid_height
     return results
 
 def analyze_convergence(convergence_history):
-    """
-    Analyze convergence behavior - REQUIRED for milestone report
-    Returns metrics about how the algorithm converged
-    """
+
     best_scores = convergence_history['best_score']
     
     analysis = {
@@ -1810,9 +1618,7 @@ def analyze_convergence(convergence_history):
     return analysis
 
 def print_solution_summary(solution, convergence_history=None, algorithm_name="GA"):
-    """
-    Print comprehensive solution summary for milestone report
-    """
+
     print("\n" + "="*70)
     print(f"{algorithm_name} SOLUTION SUMMARY")
     print("="*70)
@@ -1852,10 +1658,7 @@ def print_solution_summary(solution, convergence_history=None, algorithm_name="G
     print("="*70 + "\n")
 
 def compare_parameter_results(results):
-    """
-    Compare results from parameter sensitivity testing
-    Generates summary for milestone report
-    """
+
     print("\n" + "="*70)
     print("PARAMETER SENSITIVITY ANALYSIS SUMMARY")
     print("="*70)
@@ -1892,14 +1695,7 @@ def compare_parameter_results(results):
     print("\n" + "="*70 + "\n")
 
 def analyze_parameter_effects(results, parameter_name, save_path=None):
-    """
-    Analyze the effect of a specific GA parameter on performance.
 
-    Args:
-        results: List of dictionaries containing results for different parameter values.
-        parameter_name: Name of the parameter being analyzed.
-        save_path: Optional path to save the figure.
-    """
     import matplotlib.pyplot as plt
 
     parameter_values = [r[parameter_name] for r in results]
@@ -2096,25 +1892,7 @@ if __name__ == "__main__":
         print(f"      Imbalance term: w2 × balance_score = {w2:.1f} × {imbalance_term:.3f} = {w2 * imbalance_term:.3f}")
         print(f"      Penalty term: {penalty_term:.1f}")
         print(f"      ─────────────────────────────────────────────")
-        print(f"      Combined Score: {safe_format_score(sol.combined_score)} (lower = better)")
-        print(f"         → Formula: J = {w1:.1f}(1-coverage) + {w2:.1f}(imbalance) + penalty")
-    
-    print("\n" + "="*60)
-    print("EXPLANATION:")
-    print("="*60)
-    print("Coverage 8/8 means:")
-    print("  • 8 = number of free cells visited by at least one robot")
-    print("  • 8 = total number of free cells in the grid")
-    print("  • 8/8 = 100% coverage (all free cells are covered)")
-    print("\nScore 2.750 means:")
-    print("  • This is the combined fitness score (lower is better)")
-    print("  • It combines: coverage (70%), balance (30%), and penalties")
-    print("  • Score = 0.7×(1-coverage) + 0.3×(imbalance) + penalties")
-    print("  • Even with 100% coverage, high score can come from:")
-    print("    - High imbalance (robots have very different workloads)")
-    print("    - Penalties (path jumps, constraint violations)")
-    print("="*60)
-    
+
     ###########################################################
     # Test 2: Tournament Selection
     print("\n" + "="*60)
@@ -2225,44 +2003,7 @@ if __name__ == "__main__":
     
     print("\n" + "="*60)
     print("TOURNAMENT SELECTION CONCEPT EXPLANATION:")
-    print("="*60)
-    print("""
-HOW TOURNAMENT SELECTION WORKS:
-
-1. PURPOSE:
-   - Selects "parents" from the population for creating new solutions
-   - Like a mini-competition where the best contestant wins
-   - Balances exploration (trying different solutions) vs exploitation (using good ones)
-
-2. PROCESS:
-   Step 1: Randomly pick K solutions from population (K = tournament_size)
-   Step 2: Compare their fitness scores
-   Step 3: Select the one with BEST score (lowest = best in our case)
-   Step 4: This winner becomes a parent
-
-3. TOURNAMENT SIZE EFFECT:
-   - Small tournament (size=2): More random, more exploration
-     → Gives worse solutions a chance to be selected
-     → Maintains diversity
-   
-   - Large tournament (size=5+): More selective, more exploitation
-     → Almost always picks the best solutions
-     → Faster convergence but less diversity
-
-4. WHY USE IT:
-   ✓ Simple to implement
-   ✓ Works well with any fitness function
-   ✓ Can control selection pressure via tournament size
-   ✓ Doesn't require sorting entire population
-   ✓ Allows worse solutions to be selected (maintains diversity)
-
-5. IN OUR IMPLEMENTATION:
-   - tournament_size = 3 (default)
-   - Picks 3 random solutions
-   - Returns the one with lowest combined_score
-   - Lower score = better solution in our problem
-""")
-    print("="*60)
+ 
     
     ###########################################################
     # Test 3: Crossover (One-Point Order-Based)
@@ -2335,41 +2076,7 @@ HOW TOURNAMENT SELECTION WORKS:
         print(f"   Step 4: Result: {child_path}")
         print(f"   ✓ Child has same cells as parents (just reordered)")
         print(f"   ✓ Child length: {len(child_path)} (same as Parent 1: {len(p1_path)})")
-    
-    print("\n" + "="*60)
-    print("CROSSOVER CONCEPT EXPLANATION:")
-    print("="*60)
-    print("""
-HOW ONE-POINT ORDER-BASED CROSSOVER WORKS:
-
-1. PURPOSE:
-   - Combines two parent solutions to create a child
-   - Preserves order information (important for paths)
-   - Creates new solutions by mixing parent characteristics
-
-2. PROCESS (for each robot):
-   Step 1: Pick a random crossover point (position in path)
-   Step 2: Copy first segment from Parent 1 (up to crossover point)
-   Step 3: Fill remaining positions with Parent 2's cells in order
-          (skipping cells already used)
-   Step 4: If needed, fill with Parent 1's unused cells
-
-3. EXAMPLE:
-   Parent 1: [0, 1, 2, 3, 4]
-   Parent 2: [4, 3, 2, 1, 0]
-   Crossover point: 2
-   
-   Child: [0, 1, | 4, 3, 2]
-          ↑      ↑
-        From P1  From P2 (in order, no duplicates)
-
-4. WHY ORDER-BASED:
-   ✓ Preserves relative order of cells
-   ✓ Maintains path structure
-   ✓ Good for permutation problems (like path planning)
-   ✓ Prevents duplicate cells in path
-""")
-    print("="*60)
+ 
     
     ###########################################################
     # Test 4: Mutation (Swap Within Path)
@@ -2465,37 +2172,7 @@ HOW ONE-POINT ORDER-BASED CROSSOVER WORKS:
                 print(f"   ✓ Same cells, different order")
                 print(f"   ✓ No cells added or removed")
     
-    print("\n" + "="*60)
-    print("MUTATION CONCEPT EXPLANATION:")
-    print("="*60)
-    print("""
-HOW SWAP MUTATION WORKS:
 
-1. PURPOSE:
-   - Introduces small random changes to explore solution space
-   - Prevents getting stuck in local optima
-   - Maintains diversity in population
-
-2. PROCESS:
-   Step 1: Select worst solutions (based on mutation_percentage)
-   Step 2: Find robots with paths of length >= 2
-   Step 3: Pick a random robot
-   Step 4: Pick two different positions in that robot's path
-   Step 5: Swap the cells at these positions
-
-3. PROPERTIES:
-   ✓ Only changes order, not which cells are assigned
-   ✓ Same cells before and after mutation
-   ✓ Same path length
-   ✓ Can improve or worsen the solution
-
-4. MUTATION PERCENTAGE:
-   - mutation_percentage = 0.1 means 10% of population will be mutated
-   - Higher percentage = more exploration, more diversity
-   - Lower percentage = less exploration, faster convergence
-""")
-    print("="*60)
-    
     ###########################################################
     # Test 5: Elitism
     print("\n" + "="*60)
@@ -2568,42 +2245,7 @@ HOW SWAP MUTATION WORKS:
         print(f"✓ Second best preserved: {final_second_score == old_second_score}")
     print(f"✓ Population size maintained: {len(final_pop) == len(old_pop)}")
     
-    print("\n" + "="*60)
-    print("SELECTION (ELITISM) CONCEPT EXPLANATION:")
-    print("="*60)
-    print("""
-HOW SELECTION (ELITISM) WORKS:
-
-1. PURPOSE:
-   - Preserves the best solutions from previous generation
-   - Ensures we never lose our best solutions
-   - Prevents regression (going backwards)
-
-2. PROCESS (using selection_percentage):
-   Step 1: Sort old population by fitness (best first)
-   Step 2: Calculate number of elite: num_selection = population_size * selection_percentage
-   Step 3: Copy top num_selection solutions directly to new generation
-   Step 4: Fill remaining slots with crossover/mutation offspring
-
-3. EXAMPLE (selection_percentage = 10%):
-   Population size = 10
-   num_selection = 10 * 0.10 = 1 solution
-   Old Population: [Best(0.5), Good(1.0), OK(2.0), Bad(3.0), Worst(4.0), ...]
-   → Copy Best(0.5) directly to new generation
-   → Create remaining 9 solutions via crossover/mutation
-   
-   Final: [Best(0.5), Good(1.0), New3(7.0), New4(8.0), New5(9.0)]
-          ↑          ↑
-        Elite      Elite
-
-4. WHY IT'S IMPORTANT:
-   ✓ Guarantees monotonic improvement (best never gets worse)
-   ✓ Faster convergence
-   ✓ Preserves good solutions
-   ✓ Prevents losing progress
-""")
-    print("="*60)
-    
+ 
     ###########################################################
     # Test 6: Fitness Evaluation
     print("\n" + "="*60)
@@ -2693,46 +2335,7 @@ HOW SELECTION (ELITISM) WORKS:
     print(f"   ─────────────────────────────────────────────")
     print(f"   Combined Score: {safe_format_score(test_solution.combined_score)} (lower = better)")
     
-    print("\n" + "="*60)
-    print("FITNESS EVALUATION CONCEPT EXPLANATION:")
-    print("="*60)
-    print("""
-HOW FITNESS EVALUATION WORKS:
-
-1. PURPOSE:
-   - Measures how good a solution is
-   - Combines multiple objectives into single score
-   - Lower score = better solution
-
-2. COMPONENTS:
-   a) Coverage: How many cells are visited
-      - Higher coverage = better
-      - Converted to minimization: (1 - coverage_ratio)
    
-   b) Balance: How evenly robots work
-      - Lower variance = more balanced
-      - Measured as standard deviation of distances
-   
-   c) Penalties: For breaking constraints
-      - Boundary violations: 1000
-      - Obstacle collisions: 500
-      - Path jumps: 100
-
-3. COMBINED FORMULA:
-   J = w1(1-coverage) + w2(imbalance) + penalty
-   
-   Where:
-   - w1 = 0.7 (or 0.5 if coverage is perfect)
-   - w2 = 0.3 (or 0.5 if coverage is perfect)
-   - Lower J = better solution
-
-4. WHY THIS APPROACH:
-   ✓ Single number to compare solutions
-   ✓ Balances multiple objectives
-   ✓ Penalizes constraint violations
-   ✓ Guides search toward good solutions
-""")
-    print("="*60)
     
     ###########################################################
     # Test 7: Full GA Loop (1 Generation)
@@ -2826,39 +2429,7 @@ HOW FITNESS EVALUATION WORKS:
     print(f"✓ Average changed: {safe_format_score(abs(final_avg - initial_avg))}")
     print(f"✓ Population size maintained: {len(final_pop) == len(test_pop)}")
     
-    print("\n" + "="*60)
-    print("FULL GA LOOP CONCEPT EXPLANATION:")
-    print("="*60)
-    print("""
-HOW ONE GENERATION WORKS:
-
-1. INITIALIZATION:
-   - Start with random population
-   - Evaluate all solutions
-
-2. FOR EACH GENERATION:
-   a) Selection: Pick parents using tournament selection
-# Find lines 2318-2346 and replace with:
-
-# filepath: /Users/hagarelgazzar/Desktop/Optimization_ms_3/optimization-1/GA.py
-b) Crossover: Combine parents to create child
-   c) Mutation: Randomly modify child
-   d) Evaluation: Calculate child's fitness
-   e) Add to new population
-   
-   f) Elitism: Replace worst solutions with best from previous generation
-
-3. REPEAT:
-   - Run for multiple generations
-   - Population evolves toward better solutions
-   - Best solution improves over time
-
-4. TERMINATION:
-   - After fixed number of generations, OR
-   - When solution is good enough, OR
-   - When no improvement for many generations
-""")
-    print("="*60)
+    
     
     #!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     # Run Genetic Algorithm
