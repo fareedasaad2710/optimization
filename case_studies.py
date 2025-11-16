@@ -97,8 +97,6 @@ def case_study_1_small_grid():
         # Visualize GA solution
         visualize_solution(
             ga_solution,
-            grid_width=grid_width,
-            grid_height=grid_height,
             title="Case Study 1: GA Best Solution",
             save_path="results/case_study_1/ga_solution.png"
         )
@@ -107,8 +105,6 @@ def case_study_1_small_grid():
         # Visualize SA solution
         visualize_solution(
             sa_solution,
-            grid_width=grid_width,
-            grid_height=grid_height,
             title="Case Study 1: SA Best Solution",
             save_path="results/case_study_1/sa_solution.png"
         )
@@ -140,9 +136,8 @@ def case_study_1_small_grid():
     
     try:
         comparison = generate_comparison_report(
-            sa_solution, sa_history,
-            ga_results['best_solution'], ga_results['convergence_history'],
-            grid_width, grid_height,
+            (sa_solution, sa_history),
+            ga_results,
             case_study_name="Case Study 1: Small Grid"
         )
         print("✅ Comparison report generated")
@@ -234,8 +229,6 @@ def case_study_2_medium_grid():
         
         visualize_solution(
             ga_solution,
-            grid_width=grid_width,
-            grid_height=grid_height,
             title="Case Study 2: GA Best Solution",
             save_path="results/case_study_2/ga_solution.png"
         )
@@ -243,8 +236,6 @@ def case_study_2_medium_grid():
         
         visualize_solution(
             sa_solution,
-            grid_width=grid_width,
-            grid_height=grid_height,
             title="Case Study 2: SA Best Solution",
             save_path="results/case_study_2/sa_solution.png"
         )
@@ -271,9 +262,8 @@ def case_study_2_medium_grid():
     # Generate comparison report
     try:
         comparison = generate_comparison_report(
-            sa_solution, sa_history,
-            ga_results['best_solution'], ga_results['convergence_history'],
-            grid_width, grid_height,
+            (sa_solution, sa_history),
+            ga_results,
             case_study_name="Case Study 2: Medium Grid"
         )
         print("✅ Comparison report generated")
@@ -363,8 +353,6 @@ def case_study_3_large_grid():
         
         visualize_solution(
             ga_solution,
-            grid_width=grid_width,
-            grid_height=grid_height,
             title="Case Study 3: GA Best Solution",
             save_path="results/case_study_3/ga_solution.png"
         )
@@ -372,8 +360,6 @@ def case_study_3_large_grid():
         
         visualize_solution(
             sa_solution,
-            grid_width=grid_width,
-            grid_height=grid_height,
             title="Case Study 3: SA Best Solution",
             save_path="results/case_study_3/sa_solution.png"
         )
@@ -400,9 +386,8 @@ def case_study_3_large_grid():
     # Generate comparison report
     try:
         comparison = generate_comparison_report(
-            sa_solution, sa_history,
-            ga_results['best_solution'], ga_results['convergence_history'],
-            grid_width, grid_height,
+            (sa_solution, sa_history),
+            ga_results,
             case_study_name="Case Study 3: Large Grid"
         )
         print("✅ Comparison report generated")
@@ -492,8 +477,6 @@ def case_study_4_many_robots():
         
         visualize_solution(
             ga_solution,
-            grid_width=grid_width,
-            grid_height=grid_height,
             title="Case Study 4: GA Best Solution",
             save_path="results/case_study_4/ga_solution.png"
         )
@@ -501,8 +484,6 @@ def case_study_4_many_robots():
         
         visualize_solution(
             sa_solution,
-            grid_width=grid_width,
-            grid_height=grid_height,
             title="Case Study 4: SA Best Solution",
             save_path="results/case_study_4/sa_solution.png"
         )
@@ -529,9 +510,8 @@ def case_study_4_many_robots():
     # Generate comparison report
     try:
         comparison = generate_comparison_report(
-            sa_solution, sa_history,
-            ga_results['best_solution'], ga_results['convergence_history'],
-            grid_width, grid_height,
+            (sa_solution, sa_history),
+            ga_results,
             case_study_name="Case Study 4: Many Robots"
         )
         print("✅ Comparison report generated")
@@ -664,8 +644,6 @@ def case_study_1_small_grid():
         # Visualize GA solution
         visualize_solution(
             ga_solution,
-            grid_width=grid_width,
-            grid_height=grid_height,
             title="Case Study 1: GA Best Solution",
             save_path="results/case_study_1/ga_solution.png"
         )
@@ -674,8 +652,6 @@ def case_study_1_small_grid():
         # Visualize SA solution
         visualize_solution(
             sa_solution,
-            grid_width=grid_width,
-            grid_height=grid_height,
             title="Case Study 1: SA Best Solution",
             save_path="results/case_study_1/sa_solution.png"
         )
@@ -707,9 +683,8 @@ def case_study_1_small_grid():
     
     try:
         comparison = generate_comparison_report(
-            sa_solution, sa_history,
-            ga_results['best_solution'], ga_results['convergence_history'],
-            grid_width, grid_height,
+            (sa_solution, sa_history),
+            ga_results,
             case_study_name="Case Study 1: Small Grid"
         )
         print("✅ Comparison report generated")
@@ -801,8 +776,6 @@ def case_study_2_medium_grid():
         
         visualize_solution(
             ga_solution,
-            grid_width=grid_width,
-            grid_height=grid_height,
             title="Case Study 2: GA Best Solution",
             save_path="results/case_study_2/ga_solution.png"
         )
@@ -810,8 +783,6 @@ def case_study_2_medium_grid():
         
         visualize_solution(
             sa_solution,
-            grid_width=grid_width,
-            grid_height=grid_height,
             title="Case Study 2: SA Best Solution",
             save_path="results/case_study_2/sa_solution.png"
         )
@@ -838,9 +809,8 @@ def case_study_2_medium_grid():
     # Generate comparison report
     try:
         comparison = generate_comparison_report(
-            sa_solution, sa_history,
-            ga_results['best_solution'], ga_results['convergence_history'],
-            grid_width, grid_height,
+            (sa_solution, sa_history),
+            ga_results,
             case_study_name="Case Study 2: Medium Grid"
         )
         print("✅ Comparison report generated")
@@ -930,8 +900,6 @@ def case_study_3_large_grid():
         
         visualize_solution(
             ga_solution,
-            grid_width=grid_width,
-            grid_height=grid_height,
             title="Case Study 3: GA Best Solution",
             save_path="results/case_study_3/ga_solution.png"
         )
@@ -939,8 +907,6 @@ def case_study_3_large_grid():
         
         visualize_solution(
             sa_solution,
-            grid_width=grid_width,
-            grid_height=grid_height,
             title="Case Study 3: SA Best Solution",
             save_path="results/case_study_3/sa_solution.png"
         )
@@ -967,9 +933,8 @@ def case_study_3_large_grid():
     # Generate comparison report
     try:
         comparison = generate_comparison_report(
-            sa_solution, sa_history,
-            ga_results['best_solution'], ga_results['convergence_history'],
-            grid_width, grid_height,
+            (sa_solution, sa_history),
+            ga_results,
             case_study_name="Case Study 3: Large Grid"
         )
         print("✅ Comparison report generated")
@@ -1059,8 +1024,6 @@ def case_study_4_many_robots():
         
         visualize_solution(
             ga_solution,
-            grid_width=grid_width,
-            grid_height=grid_height,
             title="Case Study 4: GA Best Solution",
             save_path="results/case_study_4/ga_solution.png"
         )
@@ -1068,8 +1031,6 @@ def case_study_4_many_robots():
         
         visualize_solution(
             sa_solution,
-            grid_width=grid_width,
-            grid_height=grid_height,
             title="Case Study 4: SA Best Solution",
             save_path="results/case_study_4/sa_solution.png"
         )
@@ -1096,9 +1057,8 @@ def case_study_4_many_robots():
     # Generate comparison report
     try:
         comparison = generate_comparison_report(
-            sa_solution, sa_history,
-            ga_results['best_solution'], ga_results['convergence_history'],
-            grid_width, grid_height,
+            (sa_solution, sa_history),
+            ga_results,
             case_study_name="Case Study 4: Many Robots"
         )
         print("✅ Comparison report generated")

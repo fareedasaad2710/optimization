@@ -56,10 +56,43 @@ class RobotCoverageSolution:
         - Uses the formula: J = w1(1 - coverage) + w2(imbalance) + penalty
         - Lower score = better solution
         """
+        # Convert paths from list to dict format if needed
+        # evaluate_solution expects paths as dict[int, list[int]]
+        if isinstance(self.paths, list):
+            paths_dict = {robot_id: path for robot_id, path in enumerate(self.paths)}
+        elif isinstance(self.paths, dict):
+            paths_dict = copy.deepcopy(self.paths)
+        else:
+            # Fallback: create empty dict
+            paths_dict = {}
+        
+        # Ensure all paths in dict are lists
+        for robot_id in paths_dict:
+            if not isinstance(paths_dict[robot_id], list):
+                paths_dict[robot_id] = [paths_dict[robot_id]] if paths_dict[robot_id] is not None else []
+        
+        # Convert all_cells to Cell objects if needed (evaluate_solution expects Cell objects)
+        cells_list = self.all_cells
+        if len(cells_list) > 0 and isinstance(cells_list[0], tuple):
+            # Convert tuples to Cell objects
+            class Cell:
+                def __init__(self, x, y):
+                    self.x = x
+                    self.y = y
+            cells_list = [Cell(cell[0], cell[1]) if isinstance(cell, tuple) else cell for cell in cells_list]
+        elif len(cells_list) > 0 and not (hasattr(cells_list[0], 'x') and hasattr(cells_list[0], 'y')):
+            # If not tuples and not Cell objects, try to convert
+            class Cell:
+                def __init__(self, x, y):
+                    self.x = x
+                    self.y = y
+            cells_list = [Cell(cell[0], cell[1]) if hasattr(cell, '__getitem__') else cell for cell in cells_list]
+        
         # Get basic scores (coverage, balance, problems)
+        # Note: evaluate_solution expects (assignment, paths, all_cells, free_cells, obstacles, grid_width, grid_height)
         results = evaluate_solution(
-            self.all_cells, self.free_cells, self.obstacles, 
-            self.assignment, self.paths, self.grid_width, self.grid_height
+            self.assignment, paths_dict, cells_list, self.free_cells, 
+            self.obstacles, self.grid_width, self.grid_height
         )
         self.fitness = results
         
@@ -258,6 +291,9 @@ def simulated_annealing(all_cells, free_cells, obstacles, grid_width, grid_heigh
         'best_balance': []
     }
     
+    # Initialize best_score
+    best_score = best_solution.combined_score if best_solution.combined_score is not None else float('inf')
+    
     # Main SA loop - try to improve solution
     for iteration in range(max_iterations):
         # Step 2: Generate neighbor solution (slight change)
@@ -270,9 +306,9 @@ def simulated_annealing(all_cells, free_cells, obstacles, grid_width, grid_heigh
         # Step 4: Accept or reject neighbor
         if delta < 0:  # Neighbor is better - always accept
             current_solution = neighbor
-            best_score = best_solution.combined_score if best_solution.combined_score is not None else float('inf')
             if neighbor.combined_score < best_score:
                 best_solution = neighbor.copy()
+                best_score = neighbor.combined_score
         else:  # Neighbor is worse - accept with probability
             if random.random() < math.exp(-delta / temperature):
                 current_solution = neighbor

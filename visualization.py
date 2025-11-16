@@ -167,6 +167,14 @@ def plot_robot_paths(solution, grid_size, title="Robot Paths", save_path=None):
     """
     grid_width, grid_height = grid_size
     
+    # Convert paths from list to dict format if needed (SA uses list, GA uses dict)
+    if isinstance(solution.paths, list):
+        paths_dict = {robot_id: path for robot_id, path in enumerate(solution.paths)}
+    elif isinstance(solution.paths, dict):
+        paths_dict = solution.paths
+    else:
+        paths_dict = {}
+    
     fig, ax = plt.subplots(figsize=(10, 8))
     
     # Draw grid
@@ -187,7 +195,7 @@ def plot_robot_paths(solution, grid_size, title="Robot Paths", save_path=None):
     colors = ['red', 'blue', 'green', 'orange', 'purple', 'cyan', 'magenta', 'yellow']
     
     # Draw robot paths
-    for robot_id, path in solution.paths.items():
+    for robot_id, path in paths_dict.items():
         if len(path) == 0:
             continue
         
@@ -251,10 +259,18 @@ def plot_coverage_heatmap(solution, grid_size, title="Coverage Heatmap", save_pa
     """
     grid_width, grid_height = grid_size
     
+    # Convert paths from list to dict format if needed (SA uses list, GA uses dict)
+    if isinstance(solution.paths, list):
+        paths_dict = {robot_id: path for robot_id, path in enumerate(solution.paths)}
+    elif isinstance(solution.paths, dict):
+        paths_dict = solution.paths
+    else:
+        paths_dict = {}
+    
     # Create coverage matrix
     coverage_matrix = np.zeros((grid_height, grid_width))
     
-    for robot_id, path in solution.paths.items():
+    for robot_id, path in paths_dict.items():
         for cell_idx in path:
             x = cell_idx % grid_width
             y = cell_idx // grid_width
@@ -332,6 +348,14 @@ def visualize_solution(solution, title="Multi-Robot Coverage Solution", save_pat
     grid_width = solution.grid_width
     grid_height = solution.grid_height
     
+    # Convert paths from list to dict format if needed (SA uses list, GA uses dict)
+    if isinstance(solution.paths, list):
+        paths_dict = {robot_id: path for robot_id, path in enumerate(solution.paths)}
+    elif isinstance(solution.paths, dict):
+        paths_dict = solution.paths
+    else:
+        paths_dict = {}
+    
     # Create figure with 2 subplots
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 7))
     
@@ -356,7 +380,7 @@ def visualize_solution(solution, title="Multi-Robot Coverage Solution", save_pat
                 color='white', fontsize=12, fontweight='bold')
     
     # Draw robot paths
-    for robot_id, path in solution.paths.items():
+    for robot_id, path in paths_dict.items():
         if len(path) == 0:
             continue
         
@@ -411,20 +435,50 @@ def visualize_solution(solution, title="Multi-Robot Coverage Solution", save_pat
     # Subplot 2: Performance metrics
     ax2.axis('off')
     
+    # Calculate metrics (handle both GA and SA solutions)
+    # Coverage efficiency
+    if hasattr(solution, 'get_coverage_efficiency'):
+        coverage_efficiency = solution.get_coverage_efficiency()
+    else:
+        # Calculate from fitness data
+        if solution.fitness and 'coverage_score' in solution.fitness:
+            coverage_efficiency = (solution.fitness['coverage_score'] / len(solution.free_cells)) * 100 if len(solution.free_cells) > 0 else 0
+        else:
+            coverage_efficiency = 0.0
+    
+    # Workload balance index
+    if hasattr(solution, 'get_workload_balance_index'):
+        balance_index = solution.get_workload_balance_index()
+    else:
+        # Calculate from fitness data
+        if solution.fitness and 'balance_score' in solution.fitness:
+            balance_index = solution.fitness['balance_score']
+        else:
+            balance_index = 0.0
+    
+    # Count cells covered
+    if isinstance(paths_dict, dict):
+        cells_covered = sum(len(path) for path in paths_dict.values())
+    else:
+        cells_covered = 0
+    
+    # Format combined score safely
+    combined_score_str = f"{solution.combined_score:.4f}" if solution.combined_score is not None else "N/A"
+    
     # Display solution metrics
     metrics_text = f"""
     SOLUTION PERFORMANCE METRICS
     {'='*40}
     
-    Combined Score: {solution.combined_score:.4f}
+    Combined Score: {combined_score_str}
     
     Coverage Metrics:
-    • Coverage Efficiency: {solution.get_coverage_efficiency():.2f}%
-    • Cells Covered: {sum(len(path) for path in solution.paths.values())}
+    • Coverage Efficiency: {coverage_efficiency:.2f}%
+    • Cells Covered: {cells_covered}
     • Total Free Cells: {len(solution.free_cells)}
     
     Workload Distribution:
-    • Balance Index: {solution.get_workload_balance_index():.4f}
+    • Balance Index: {balance_index:.4f}
     """
     
     # Add individual robot workloads
