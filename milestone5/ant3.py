@@ -1,19 +1,3 @@
-"""
-Ant Colony Optimization for Multi-Robot Coverage Path Planning
-==============================================================
-
-This implementation combines:
-- DARP (Divide Areas based on Robot Positions): ACO-based deterministic partitioning
-- UF-STC (Uniform Coverage Spanning Tree Construction): Spanning tree + DFS/BFS traversal
-
-Problem Formulation:
-- Decision Variables: ai,r (assignment), πr (paths)
-- Objective F1: Maximize area coverage
-- Objective F2: Minimize workload imbalance
-- Constraints: Path continuity, boundary, obstacle avoidance
-
-Based on research paper approach with full problem formulation implementation.
-"""
 
 import copy
 import math
@@ -35,13 +19,7 @@ from problem_formulation import (
 
 
 class ACOSolution:
-    """
-    Solution representation for ACO algorithm
-    
-    Decision Variables:
-    - assignment[cell_idx][robot_id] = ai,r (0 or 1)
-    - paths[robot_id] = πr = [ir,1, ir,2, ..., ir,nr]
-    """
+
     def __init__(self, assignment, paths, all_cells, free_cells, obstacles, grid_width, grid_height):
         self.assignment = copy.deepcopy(assignment)  # ai,r: assignment matrix
         self.paths = copy.deepcopy(paths)  # πr: paths dict {robot_id: [cell1, cell2, ...]}
@@ -56,9 +34,8 @@ class ACOSolution:
         self.F2 = None  # Workload imbalance objective
         self.Lr = {}  # Path lengths per robot: {robot_id: Lr}
         self.fitness = None  # Combined fitness for ACO
-        
+        #keeps a copy of solution
     def copy(self):
-        """Create a deep copy of this solution"""
         new_solution = ACOSolution(
             copy.deepcopy(self.assignment),
             copy.deepcopy(self.paths),
@@ -77,9 +54,8 @@ class ACOSolution:
         if self.fitness is not None:
             new_solution.fitness = self.fitness
         return new_solution
-    
+    #Ensure assignment matrix matches the paths
     def sync_assignment_with_paths(self):
-        """Ensure assignment matrix matches the paths"""
         # Clear all assignments
         for cell_idx in range(len(self.assignment)):
             for robot_id in range(len(self.assignment[cell_idx])):
@@ -91,9 +67,8 @@ class ACOSolution:
                 if cell_idx < len(self.assignment):
                     self.assignment[cell_idx][robot_id] = 1
 
-
+#Create initial empty solution
 def create_empty_solution(all_cells, free_cells, obstacles, grid_width, grid_height, num_robots):
-    """Create initial empty solution"""
     total_cells = len(all_cells)
     assignment = [[0 for _ in range(num_robots)] for _ in range(total_cells)]
     paths = {robot_id: [] for robot_id in range(num_robots)}
@@ -109,12 +84,9 @@ def create_empty_solution(all_cells, free_cells, obstacles, grid_width, grid_hei
     )
     return solution
 
-
+#    Check if consecutive cells in path are adjacent (4-connected)
 def check_path_continuity(path, all_cells, grid_width, grid_height):
-    """
-    Constraint: Path continuity - (ir,k, ir,k+1) ∈ Egrid
-    Check if consecutive cells in path are adjacent (4-connected)
-    """
+
     violations = []
     if len(path) <= 1:
         return True, violations
@@ -155,12 +127,10 @@ def check_path_continuity(path, all_cells, grid_width, grid_height):
     
     return len(violations) == 0, violations
 
+#    Check if all cells in path are within grid boundaries
 
 def check_boundary_constraint(path, all_cells, grid_width, grid_height):
-    """
-    Constraint: Boundary constraint - ir,k ∈ C
-    Check if all cells in path are within grid boundaries
-    """
+
     violations = []
     for i, cell_idx in enumerate(path):
         if cell_idx < 0 or cell_idx >= len(all_cells):
@@ -178,24 +148,20 @@ def check_boundary_constraint(path, all_cells, grid_width, grid_height):
     
     return len(violations) == 0, violations
 
+#    Check if path contains any obstacle cells
 
 def check_obstacle_avoidance(path, obstacles):
-    """
-    Constraint: Obstacle avoidance - ir,k ∉ O
-    Check if path contains any obstacle cells
-    """
+
     violations = []
     for i, cell_idx in enumerate(path):
         if cell_idx in obstacles:
             violations.append(f"Robot enters obstacle at cell {cell_idx} (position {i} in path)")
     return len(violations) == 0, violations
 
-
+#    Check all constraints for a solution
+    #Returns: (is_feasible, violations_list)
 def is_solution_feasible(solution: ACOSolution) -> Tuple[bool, List[str]]:
-    """
-    Check all constraints for a solution
-    Returns: (is_feasible, violations_list)
-    """
+
     all_violations = []
     
     if not isinstance(solution.paths, dict):
@@ -231,16 +197,10 @@ def is_solution_feasible(solution: ACOSolution) -> Tuple[bool, List[str]]:
     is_feasible = len(all_violations) == 0
     return is_feasible, all_violations
 
-
+#    UF-STC: Build spanning tree over assigned region and generate coverage path
+# using DFS preorder traversal
 def build_spanning_tree_path(start_cell_idx, assigned_cells, all_cells, free_cells, obstacles, grid_width, grid_height):
-    """
-    UF-STC: Build spanning tree over assigned region and generate coverage path
-    
-    Steps:
-    1. Build spanning tree using BFS over assigned cells
-    2. Generate coverage path using DFS preorder traversal
-    3. Return path πr = [ir,1, ir,2, ..., ir,nr]
-    """
+
     if not assigned_cells:
         return []
     
@@ -259,9 +219,8 @@ def build_spanning_tree_path(start_cell_idx, assigned_cells, all_cells, free_cel
             if cell_coord == (x, y):
                 return idx
         return None
-    
+    #Get 4-connected neighbor cell indices
     def get_neighbor_indices(cell_idx):
-        """Get 4-connected neighbor cell indices"""
         neighbors = find_neighbors(cell_idx, all_cells, grid_width, grid_height)
         neighbor_indices = []
         for neighbor_coord in neighbors:
@@ -478,12 +437,10 @@ def build_spanning_tree_path(start_cell_idx, assigned_cells, all_cells, free_cel
     
     return path
 
-
+#    Calculate path length Lr = Σ d(ir,k, ir,k+1)
+   # where d is Manhattan distance between consecutive cells
 def calculate_path_length(path, all_cells):
-    """
-    Calculate path length Lr = Σ d(ir,k, ir,k+1)
-    where d is Manhattan distance between consecutive cells
-    """
+
     if len(path) <= 1:
         return 0.0
     
@@ -511,19 +468,10 @@ def calculate_path_length(path, all_cells):
     
     return total_length
 
+#    Evaluate both objectives:
 
 def evaluate_objectives(solution: ACOSolution):
-    """
-    Evaluate both objectives:
     
-    Objective F1: Maximize area coverage
-    F1 = Σ(i=1 to N) Σ(r=1 to M) ai,r
-    
-    Objective F2: Minimize workload imbalance
-    F2 = Σ(r=1 to M) |Lr - L̄|
-    where Lr = Σ(k=1 to nr-1) d(ir,k, ir,k+1)
-    and L̄ = (1/M) Σ(r=1 to M) Lr
-    """
     # Calculate F1: Coverage
     N = len(solution.all_cells)
     M = len(solution.paths)
@@ -562,38 +510,37 @@ def evaluate_objectives(solution: ACOSolution):
     return F1, F2
 
 
+
+	  #   Ant Colony Optimization for Multi-Robot Coverage Path Planning
+    
+    # Implements:
+    # - DARP: ACO-based partitioning (assign cells to robots)
+    # - UF-STC: Spanning tree path generation
+    # - Multi-objective optimization: F1 (coverage) and F2 (workload imbalance)
+
+        # Initialize ACO algorithm
+        
+        # Parameters:
+        # - all_cells: List of all cells in grid
+        # - free_cells: List of free (non-obstacle) cell indices
+        # - obstacles: Set of obstacle cell indices
+        # - grid_width, grid_height: Grid dimensions
+        # - num_robots: Number of robots
+        # - num_ants: Number of ants per iteration
+        # - initial_pheromone: Initial pheromone level
+        # - rho: Pheromone evaporation rate
+        # - alpha: Pheromone importance
+        # - beta: Heuristic importance
+        # - iterations: Number of iterations
+        # - robot_starts: List of starting cell indices for each robot (optional)
+        # - seed: Random seed (optional)
+        # - gamma: Multi-objective weighting parameter for workload balance (γ)
 class AntColonyOptimization:
-    """
-    Ant Colony Optimization for Multi-Robot Coverage Path Planning
-    
-    Implements:
-    - DARP: ACO-based partitioning (assign cells to robots)
-    - UF-STC: Spanning tree path generation
-    - Multi-objective optimization: F1 (coverage) and F2 (workload imbalance)
-    """
-    
+
     def __init__(self, all_cells, free_cells, obstacles, grid_width, grid_height, num_robots,
                  num_ants=20, initial_pheromone=1.0, rho=0.5, alpha=1.0, beta=1.0, iterations=50,
                  robot_starts=None, seed=None, gamma=1.0):
-        """
-        Initialize ACO algorithm
-        
-        Parameters:
-        - all_cells: List of all cells in grid
-        - free_cells: List of free (non-obstacle) cell indices
-        - obstacles: Set of obstacle cell indices
-        - grid_width, grid_height: Grid dimensions
-        - num_robots: Number of robots
-        - num_ants: Number of ants per iteration
-        - initial_pheromone: Initial pheromone level
-        - rho: Pheromone evaporation rate
-        - alpha: Pheromone importance
-        - beta: Heuristic importance
-        - iterations: Number of iterations
-        - robot_starts: List of starting cell indices for each robot (optional)
-        - seed: Random seed (optional)
-        - gamma: Multi-objective weighting parameter for workload balance (γ)
-        """
+
         self.all_cells = all_cells
         self.free_cells = free_cells
         self.obstacles = set(obstacles)
@@ -641,19 +588,17 @@ class AntColonyOptimization:
         self.best_F2 = float('inf')
         self.history = []
     
+		#Get (x, y) coordinates from cell index
     def _get_cell_coords(self, cell_idx):
-        """Get (x, y) coordinates from cell index"""
         cell = self.all_cells[cell_idx]
         if isinstance(cell, tuple):
             return cell
         else:
             return (cell.x, cell.y)
-    
+    #        Returns: 1.0 / (1.0 + distance) - closer cells have higher heuristic
+
     def _calculate_distance_heuristic(self, from_cell_idx, to_cell_idx):
-        """
-        Calculate basic distance heuristic (for initialization)
-        Returns: 1.0 / (1.0 + distance) - closer cells have higher heuristic
-        """
+
         from_coord = self._get_cell_coords(from_cell_idx)
         to_coord = self._get_cell_coords(to_cell_idx)
         
@@ -663,22 +608,11 @@ class AntColonyOptimization:
             dist = 0.1  # Avoid division by zero
         
         return 1.0 / (1.0 + dist)
-    
+   #        Multi-objective desirability: η_ij = 1 / (dist(i, j) + γ|L_r - L̄|)
+#desirability 
     def _calculate_multi_objective_heuristic(self, from_cell_idx, to_cell_idx, robot_id, 
                                             current_Lr, L_bar):
-        """
-        Multi-objective desirability: η_ij = 1 / (dist(i, j) + γ|L_r - L̄|)
-        
-        Parameters:
-        - from_cell_idx: Starting cell
-        - to_cell_idx: Target cell
-        - robot_id: Robot identifier
-        - current_Lr: Current path length of robot r (estimated)
-        - L_bar: Average path length across all robots (estimated)
-        
-        Returns:
-        - Multi-objective desirability value
-        """
+
         from_coord = self._get_cell_coords(from_cell_idx)
         to_coord = self._get_cell_coords(to_cell_idx)
         
@@ -695,16 +629,9 @@ class AntColonyOptimization:
         
         return eta
     
+		#builds one solution (one ant's attempt) to assign cells to robots and create paths.
     def construct_solution(self, ant_id: int) -> Optional[ACOSolution]:
-        """
-        DARP Phase: Construct solution for one ant
-        
-        Process:
-        1. Partition cells among robots using ACO probability
-        2. Build spanning tree paths (UF-STC) for each robot
-        3. Evaluate objectives F1 and F2
-        4. Return feasible solution
-        """
+
         solution = create_empty_solution(
             self.all_cells, self.free_cells, self.obstacles,
             self.grid_width, self.grid_height, self.num_robots
@@ -718,7 +645,17 @@ class AntColonyOptimization:
         # Track estimated path lengths during assignment (for multi-objective heuristic)
         estimated_path_lengths = {robot_id: 0 for robot_id in range(self.num_robots)}
         
-        for cell_idx in self.free_cells:
+        # Calculate minimum cells per robot to ensure all robots are utilized
+        min_cells_per_robot = max(1, len(self.free_cells) // (self.num_robots * 2))  # At least 1, or 1/2 of average
+        
+        # Track which robots need minimum assignment
+        robots_needing_cells = set(range(self.num_robots))
+        
+        # Shuffle free cells for random processing order
+        shuffled_cells = list(self.free_cells)
+        random.shuffle(shuffled_cells)
+        
+        for cell_idx in shuffled_cells:
             # Calculate current average path length
             avg_length = (sum(estimated_path_lengths.values()) / self.num_robots 
                          if self.num_robots > 0 else 0)
@@ -738,8 +675,23 @@ class AntColonyOptimization:
                     avg_length
                 )
                 
-                # ACO probability formula
-                weight = (tau ** self.alpha) * (eta ** self.beta)
+                # Boost probability for underutilized robots
+                boost_factor = 1.0
+                num_assigned = len(assignments_per_robot[robot_id])
+                
+                # If robot hasn't reached minimum assignment, boost its probability
+                if num_assigned < min_cells_per_robot and robot_id in robots_needing_cells:
+                    # Strong boost: multiply weight by factor that decreases as we approach minimum
+                    boost_factor = 1.0 + (min_cells_per_robot - num_assigned) * 2.0
+                
+                # If robot has very few assignments compared to average, boost it
+                if num_assigned > 0:
+                    avg_assigned = sum(len(assignments_per_robot[r]) for r in range(self.num_robots)) / self.num_robots
+                    if num_assigned < avg_assigned * 0.5:  # Less than 50% of average
+                        boost_factor *= 1.5
+                
+                # ACO probability formula with boost
+                weight = (tau ** self.alpha) * (eta ** self.beta) * boost_factor
                 weights.append(weight)
             
             # Normalize to probabilities
@@ -755,8 +707,119 @@ class AntColonyOptimization:
             
             # Update estimated path length (rough estimate: number of assigned cells)
             estimated_path_lengths[selected_robot] = len(assignments_per_robot[selected_robot])
+            
+            # Remove robot from needing-cells set if it reached minimum
+            if len(assignments_per_robot[selected_robot]) >= min_cells_per_robot:
+                robots_needing_cells.discard(selected_robot)
         
-        # Step 2: UF-STC Path Generation - Build spanning tree paths for each robot
+        # Post-processing: Ensure all robots have at least some assignments
+        # If any robot has zero assignments, redistribute some cells
+        for robot_id in range(self.num_robots):
+            if len(assignments_per_robot[robot_id]) == 0:
+                # Find robot with most assignments
+                max_robot = max(range(self.num_robots), 
+                              key=lambda r: len(assignments_per_robot[r]))
+                
+                # Transfer some cells from max_robot to empty robot
+                if len(assignments_per_robot[max_robot]) > min_cells_per_robot:
+                    cells_to_transfer = list(assignments_per_robot[max_robot])[:min_cells_per_robot]
+                    for cell in cells_to_transfer:
+                        assignments_per_robot[max_robot].remove(cell)
+                        assignments_per_robot[robot_id].add(cell)
+                        estimated_path_lengths[robot_id] = len(assignments_per_robot[robot_id])
+                        estimated_path_lengths[max_robot] = len(assignments_per_robot[max_robot])
+        
+        # Step 2: Check connectivity and reassign unreachable cells
+        # Helper function to check if a cell is reachable from a start position
+        def is_reachable_from(start_idx, target_idx, free_cells_set, obstacles_set):
+            """Check if target cell is reachable from start using BFS"""
+            if start_idx == target_idx:
+                return True
+            
+            queue = collections.deque([start_idx])
+            visited = {start_idx}
+            
+            while queue:
+                current = queue.popleft()
+                if current == target_idx:
+                    return True
+                
+                neighbors = find_neighbors(current, self.all_cells, self.grid_width, self.grid_height)
+                for nb_coord in neighbors:
+                    # Convert to index
+                    nb_idx = None
+                    for idx, cell in enumerate(self.all_cells):
+                        cell_coord = self._get_cell_coords(idx)
+                        if isinstance(nb_coord, tuple) and cell_coord == nb_coord:
+                            nb_idx = idx
+                            break
+                    
+                    if (nb_idx is not None and 
+                        nb_idx in free_cells_set and 
+                        nb_idx not in obstacles_set and
+                        nb_idx not in visited):
+                        visited.add(nb_idx)
+                        queue.append(nb_idx)
+            
+            return False
+        
+        # Reassign unreachable cells to robots that can reach them
+        free_cells_set = set(self.free_cells)
+        obstacles_set = set(self.obstacles)
+        unreachable_cells = {}  # {cell_idx: [list of robots that can't reach it]}
+        
+        for robot_id in range(self.num_robots):
+            assigned_cells = assignments_per_robot[robot_id]
+            start_cell_idx = self.robot_starts[robot_id]
+            
+            # Check which assigned cells are unreachable
+            for cell_idx in list(assigned_cells):
+                if not is_reachable_from(start_cell_idx, cell_idx, free_cells_set, obstacles_set):
+                    # This cell is unreachable by this robot
+                    if cell_idx not in unreachable_cells:
+                        unreachable_cells[cell_idx] = []
+                    unreachable_cells[cell_idx].append(robot_id)
+                    assignments_per_robot[robot_id].remove(cell_idx)
+        
+        # Reassign unreachable cells to robots that CAN reach them
+        for cell_idx, unreachable_robots in unreachable_cells.items():
+            best_robot = None
+            min_distance = float('inf')
+            
+            # Find the closest robot that CAN reach this cell
+            for robot_id in range(self.num_robots):
+                if robot_id not in unreachable_robots:
+                    start_cell_idx = self.robot_starts[robot_id]
+                    if is_reachable_from(start_cell_idx, cell_idx, free_cells_set, obstacles_set):
+                        # Calculate distance
+                        start_coord = self._get_cell_coords(start_cell_idx)
+                        cell_coord = self._get_cell_coords(cell_idx)
+                        dist = abs(start_coord[0] - cell_coord[0]) + abs(start_coord[1] - cell_coord[1])
+                        
+                        if dist < min_distance:
+                            min_distance = dist
+                            best_robot = robot_id
+            
+            # Reassign to best robot (or keep with original if all robots can't reach)
+            if best_robot is not None:
+                assignments_per_robot[best_robot].add(cell_idx)
+            else:
+                # If no robot can reach it, assign to closest robot anyway
+                # (might be an isolated cell - will handle in path generation)
+                closest_robot = min(range(self.num_robots), 
+                                  key=lambda r: abs(self._get_cell_coords(self.robot_starts[r])[0] - 
+                                                   self._get_cell_coords(cell_idx)[0]) +
+                                               abs(self._get_cell_coords(self.robot_starts[r])[1] - 
+                                                   self._get_cell_coords(cell_idx)[1]))
+                assignments_per_robot[closest_robot].add(cell_idx)
+        
+        # Step 3: UF-STC Path Generation - Build spanning tree paths for each robot
+        # Set assignments in solution
+        for robot_id in range(self.num_robots):
+            for cell_idx in assignments_per_robot[robot_id]:
+                if cell_idx < len(solution.assignment):
+                    solution.assignment[cell_idx][robot_id] = 1
+        
         for robot_id in range(self.num_robots):
             assigned_cells = assignments_per_robot[robot_id]
             start_cell_idx = self.robot_starts[robot_id]
@@ -769,11 +832,232 @@ class AntColonyOptimization:
             )
             
             solution.paths[robot_id] = path
+            
+            # Ensure all assigned cells are in the path (add disconnected cells at the end if needed)
+            path_cells_set = set(path)
+            missing_in_path = assigned_cells - path_cells_set
+            
+            if missing_in_path:
+                # Try to add missing cells to path
+                # Find the last cell in current path
+                last_cell = path[-1] if path else start_cell_idx
+                
+                for missing_cell in missing_in_path:
+                    # Try to find a path from last_cell to missing_cell
+                    # Use simple greedy approach
+                    current = last_cell
+                    path_to_missing = []
+                    max_attempts = self.grid_width + self.grid_height
+                    
+                    for attempt in range(max_attempts):
+                        if current == missing_cell:
+                            break
+                        
+                        # Get neighbors
+                        neighbors = find_neighbors(current, self.all_cells, self.grid_width, self.grid_height)
+                        # Convert to indices
+                        neighbor_indices = []
+                        for nb_coord in neighbors:
+                            for idx, cell in enumerate(self.all_cells):
+                                cell_coord = self._get_cell_coords(idx)
+                                if isinstance(nb_coord, tuple) and cell_coord == nb_coord:
+                                    neighbor_indices.append(idx)
+                                    break
+                        
+                        # Filter to free cells
+                        valid_neighbors = [idx for idx in neighbor_indices 
+                                         if idx in self.free_cells and idx not in self.obstacles]
+                        
+                        if not valid_neighbors:
+                            break
+                        
+                        # Choose neighbor closest to missing cell
+                        missing_coord = self._get_cell_coords(missing_cell)
+                        best_neighbor = None
+                        min_dist = float('inf')
+                        
+                        for nb_idx in valid_neighbors:
+                            nb_coord = self._get_cell_coords(nb_idx)
+                            dist = abs(nb_coord[0] - missing_coord[0]) + abs(nb_coord[1] - missing_coord[1])
+                            if dist < min_dist:
+                                min_dist = dist
+                                best_neighbor = nb_idx
+                        
+                        if best_neighbor is None:
+                            break
+                        
+                        path_to_missing.append(best_neighbor)
+                        current = best_neighbor
+                    
+                    # If we reached the missing cell, add the path
+                    if current == missing_cell and path_to_missing:
+                        path.extend(path_to_missing)
+                        if path_to_missing[-1] != missing_cell:
+                            path.append(missing_cell)
+                        last_cell = missing_cell
+                    elif current == missing_cell:
+                        # Already at target
+                        path.append(missing_cell)
+                        last_cell = missing_cell
+                    else:
+                        # Couldn't find a path - try alternative: use BFS to find path through all free cells
+                        # Use BFS to find shortest path (can use any free cell, not just assigned)
+                        queue = collections.deque([(last_cell, [])])
+                        visited_bfs = {last_cell}
+                        found_path = False
+                        
+                        while queue and not found_path:
+                            current_bfs, path_bfs = queue.popleft()
+                            
+                            if current_bfs == missing_cell:
+                                # Found path!
+                                if path_bfs:
+                                    path.extend(path_bfs)
+                                    if path_bfs[-1] != missing_cell:
+                                        path.append(missing_cell)
+                                    last_cell = missing_cell
+                                    found_path = True
+                                break
+                            
+                            # Get all neighbors (including non-assigned free cells)
+                            neighbors_bfs = find_neighbors(current_bfs, self.all_cells, self.grid_width, self.grid_height)
+                            for nb_coord in neighbors_bfs:
+                                # Convert to index
+                                nb_idx = None
+                                for idx, cell in enumerate(self.all_cells):
+                                    cell_coord = self._get_cell_coords(idx)
+                                    if isinstance(nb_coord, tuple) and cell_coord == nb_coord:
+                                        nb_idx = idx
+                                        break
+                                
+                                if (nb_idx is not None and 
+                                    nb_idx in self.free_cells and 
+                                    nb_idx not in self.obstacles and
+                                    nb_idx not in visited_bfs):
+                                    visited_bfs.add(nb_idx)
+                                    new_path = path_bfs + [nb_idx]
+                                    queue.append((nb_idx, new_path))
+                        
+                        # If still couldn't find path, verify reachability and try one more time
+                        if not found_path:
+                            # Since we checked reachability before, this cell SHOULD be reachable
+                            # Try one more time with a longer BFS limit
+                            queue2 = collections.deque([(last_cell, [])])
+                            visited_bfs2 = {last_cell}
+                            max_bfs_depth = (self.grid_width + self.grid_height) * 2  # Longer search
+                            depth = 0
+                            
+                            while queue2 and depth < max_bfs_depth and not found_path:
+                                depth += 1
+                                current_bfs2, path_bfs2 = queue2.popleft()
+                                
+                                if current_bfs2 == missing_cell:
+                                    if path_bfs2:
+                                        path.extend(path_bfs2)
+                                        if path_bfs2[-1] != missing_cell:
+                                            path.append(missing_cell)
+                                        last_cell = missing_cell
+                                        found_path = True
+                                    break
+                                
+                                neighbors_bfs2 = find_neighbors(current_bfs2, self.all_cells, self.grid_width, self.grid_height)
+                                for nb_coord in neighbors_bfs2:
+                                    nb_idx = None
+                                    for idx, cell in enumerate(self.all_cells):
+                                        cell_coord = self._get_cell_coords(idx)
+                                        if isinstance(nb_coord, tuple) and cell_coord == nb_coord:
+                                            nb_idx = idx
+                                            break
+                                    
+                                    if (nb_idx is not None and 
+                                        nb_idx in self.free_cells and 
+                                        nb_idx not in self.obstacles and
+                                        nb_idx not in visited_bfs2):
+                                        visited_bfs2.add(nb_idx)
+                                        new_path2 = path_bfs2 + [nb_idx]
+                                        queue2.append((nb_idx, new_path2))
+                            
+                            # If STILL couldn't find path, the cell might be truly isolated
+                            # In this case, we've already reassigned it, so skip it
+                            # (It will be handled by the robot it was reassigned to)
+                            if not found_path:
+                                # Remove from this robot's assignments since it can't be reached
+                                assignments_per_robot[robot_id].discard(missing_cell)
+                                if missing_cell < len(solution.assignment):
+                                    solution.assignment[missing_cell][robot_id] = 0
         
-        # Step 3: Sync assignment matrix with paths
-        solution.sync_assignment_with_paths()
+        # Step 4: Final pass - ensure all assigned cells are in paths
+        # Check for any cells that are still assigned but not in any path
+        all_path_cells = set()
+        for path in solution.paths.values():
+            all_path_cells.update(path)
         
-        # Step 4: Check feasibility
+        # Find cells assigned but not in any path
+        for cell_idx in self.free_cells:
+            assigned_robots = []
+            for robot_id in range(self.num_robots):
+                if cell_idx < len(solution.assignment) and solution.assignment[cell_idx][robot_id] == 1:
+                    assigned_robots.append(robot_id)
+            
+            if assigned_robots and cell_idx not in all_path_cells:
+                # This cell is assigned but not in any path - add it to the first assigned robot's path
+                # Use BFS to find path from robot's last position to this cell
+                robot_id = assigned_robots[0]
+                robot_path = solution.paths[robot_id]
+                start_from = robot_path[-1] if robot_path else self.robot_starts[robot_id]
+                
+                # Use BFS to find path
+                queue_final = collections.deque([(start_from, [])])
+                visited_final = {start_from}
+                found_final = False
+                
+                while queue_final and not found_final:
+                    current_final, path_final = queue_final.popleft()
+                    
+                    if current_final == cell_idx:
+                        if path_final:
+                            robot_path.extend(path_final)
+                            if path_final[-1] != cell_idx:
+                                robot_path.append(cell_idx)
+                        else:
+                            robot_path.append(cell_idx)
+                        solution.paths[robot_id] = robot_path
+                        found_final = True
+                        break
+                    
+                    neighbors_final = find_neighbors(current_final, self.all_cells, self.grid_width, self.grid_height)
+                    for nb_coord in neighbors_final:
+                        nb_idx = None
+                        for idx, cell in enumerate(self.all_cells):
+                            cell_coord = self._get_cell_coords(idx)
+                            if isinstance(nb_coord, tuple) and cell_coord == nb_coord:
+                                nb_idx = idx
+                                break
+                        
+                        if (nb_idx is not None and 
+                            nb_idx in self.free_cells and 
+                            nb_idx not in self.obstacles and
+                            nb_idx not in visited_final):
+                            visited_final.add(nb_idx)
+                            queue_final.append((nb_idx, path_final + [nb_idx]))
+                
+                # If still couldn't find, try adding directly (ensures visualization)
+                if not found_final:
+                    robot_path.append(cell_idx)
+                    solution.paths[robot_id] = robot_path
+        
+        # Step 5: Sync assignment matrix with final paths
+        # Clear and rebuild based on actual paths
+        for cell_idx in range(len(solution.assignment)):
+            for robot_id in range(len(solution.assignment[cell_idx])):
+                solution.assignment[cell_idx][robot_id] = 0
+        
+        for robot_id, path in solution.paths.items():
+            for cell_idx in path:
+                if cell_idx < len(solution.assignment):
+                    solution.assignment[cell_idx][robot_id] = 1
+        
+        # Step 6: Check feasibility
         is_feasible, violations = is_solution_feasible(solution)
         if not is_feasible:
             # Debug: Print violations for first few failed solutions
@@ -793,46 +1077,60 @@ class AntColonyOptimization:
         
         return solution
     
+		    #     1. Evaporate: τ[r][i] = (1 - ρ) * τ[r][i]
+        # 2. Deposit: τ[r][i] += z_i (Ant Quantity Model)
+        #    where z_i = desirability (η) - our multi-objective heuristic
     def update_pheromone(self, ant_solutions: List[ACOSolution]):
-        """
-        Update pheromone trails based on ant solutions
-        
-        Process:
-        1. Evaporate: τ[r][i] = (1 - ρ) * τ[r][i]
-        2. Deposit: τ[r][i] += Δτ based on solution quality
-        """
+ 
         # Evaporation
         for robot_id in range(self.num_robots):
             for cell_idx in self.free_cells:
                 self.pheromone[robot_id][cell_idx] *= (1.0 - self.rho)
         
-        # Deposit pheromone based on solution quality
+        # Deposit pheromone using Ant Quantity Model (each ant deposits)
+        if not ant_solutions:
+            return
+        
+        # Calculate average path length for all solutions (for desirability calculation)
+        all_Lr_values = []
+        for solution in ant_solutions:
+            if solution is not None and solution.Lr:
+                all_Lr_values.extend(solution.Lr.values())
+        
+        avg_L_bar = sum(all_Lr_values) / len(all_Lr_values) if all_Lr_values else 0.0
+        
+        # Each ant deposits pheromone on its path
         for solution in ant_solutions:
             if solution is None:
                 continue
             
-            # Calculate solution quality (higher F1, lower F2 = better)
-            # Normalize F1: coverage ratio (0 to 1)
-            coverage_ratio = solution.F1 / len(self.free_cells) if len(self.free_cells) > 0 else 0
-            
-            # Normalize F2: inverse imbalance (lower F2 = higher reward)
-            # Use max F2 from all solutions to normalize
-            max_F2 = max((s.F2 for s in ant_solutions if s is not None), default=1.0)
-            if max_F2 > 0:
-                imbalance_ratio = 1.0 - (solution.F2 / max_F2)
-            else:
-                imbalance_ratio = 1.0
-            
-            # Combined quality score
-            quality = coverage_ratio * 0.7 + imbalance_ratio * 0.3
-            
-            # Deposit pheromone on used edges
+            # For each robot in this solution
             for robot_id, path in solution.paths.items():
+                if not path:
+                    continue
+                
+                # Get robot's current path length (for desirability calculation)
+                current_Lr = solution.Lr.get(robot_id, 0.0)
+                robot_start = self.robot_starts[robot_id]
+                
+                # Deposit on each cell in the path
                 for cell_idx in path:
-                    if cell_idx in self.free_cells:
-                        # Deposit proportional to quality
-                        deposit = quality * self.initial_pheromone
-                        self.pheromone[robot_id][cell_idx] += deposit
+                    if cell_idx not in self.free_cells:
+                        continue
+                    
+                    # Calculate desirability (z_i = η) using multi-objective heuristic
+                    eta = self._calculate_multi_objective_heuristic(
+                        robot_start,      # from robot start
+                        cell_idx,         # to this cell
+                        robot_id,
+                        current_Lr,       # current path length
+                        avg_L_bar         # average path length
+                    )
+                    
+                    # Ant Quantity Model: deposit = z_i = η (desirability)
+                    # In knapsack: z_i = value/weight, in our problem: z_i = η
+                    deposit = eta
+                    self.pheromone[robot_id][cell_idx] += deposit
     
     def run(self, verbose=False):
         """
@@ -870,9 +1168,36 @@ class AntColonyOptimization:
                     ant_solutions.append(solution)
                     feasible_count += 1
                     
-                    # Update best solution
-                    if (solution.F1 > self.best_F1 or 
-                        (solution.F1 == self.best_F1 and solution.F2 < self.best_F2)):
+                    # Update best solution using proper multi-objective comparison
+                    # A solution is better if:
+                    # 1. It dominates (F1 >= best_F1 AND F2 <= best_F2, with at least one strict)
+                    # 2. OR it has significantly better coverage (F1 > best_F1) with acceptable F2
+                    # 3. OR it has same/better coverage (F1 >= best_F1) AND significantly better balance (F2 < best_F2)
+                    
+                    is_better = False
+                    
+                    # Case 1: Strict dominance (better in both or equal in one, better in other)
+                    if solution.F1 >= self.best_F1 and solution.F2 <= self.best_F2:
+                        if solution.F1 > self.best_F1 or solution.F2 < self.best_F2:
+                            is_better = True
+                    
+                    # Case 2: Much better coverage with acceptable imbalance
+                    # Accept if F1 improves by at least 2 AND F2 doesn't increase too much
+                    elif solution.F1 > self.best_F1 + 1:
+                        # Allow F2 to increase, but not more than 20% of current F2
+                        max_allowed_F2 = self.best_F2 * 1.2 if self.best_F2 > 0 else float('inf')
+                        if solution.F2 <= max_allowed_F2:
+                            is_better = True
+                    
+                    # Case 3: Same/better coverage with much better balance
+                    # Accept if F1 stays same or improves AND F2 improves significantly
+                    elif solution.F1 >= self.best_F1 and solution.F2 < self.best_F2:
+                        # F2 improvement must be at least 10% or 5 units
+                        improvement = self.best_F2 - solution.F2
+                        if improvement >= max(0.1 * self.best_F2, 5.0) if self.best_F2 > 0 else True:
+                            is_better = True
+                    
+                    if is_better:
                         self.best_solution = solution.copy()
                         self.best_F1 = solution.F1
                         self.best_F2 = solution.F2
