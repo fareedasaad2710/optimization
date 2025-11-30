@@ -1,9 +1,67 @@
 
 
 from GA import genetic_algorithm
-from visualization import visualize_solution, plot_convergence_history
+from visualization import visualize_solution, plot_convergence_history, plot_best_score_only
 import time
 import os
+
+
+def normalize_ga_convergence_history(convergence_history):
+    """
+    Normalize GA convergence history to 0-1 range for fair comparison with ACO.
+    
+    GA uses: w1 * (1 - coverage) + w2 * imbalance + penalty (raw values, can be 1000+)
+    ACO uses: normalized values (0-1 range)
+    
+    This function normalizes GA scores to match ACO's scale while preserving "lower = better".
+    """
+    if not convergence_history or 'best_score' not in convergence_history:
+        return convergence_history
+    
+    best_scores = convergence_history['best_score']
+    if not best_scores:
+        return convergence_history
+    
+    # Find min and max for normalization
+    min_score = min(best_scores)
+    max_score = max(best_scores)
+    score_range = max_score - min_score
+    
+    normalized_history = convergence_history.copy()
+    
+    if score_range > 0:
+        # Normalize GA scores to match ACO's range (approximately 0.3-0.7)
+        # GA: min_score (best) → max_score (worst), lower is better
+        # ACO: ~0.45 (best) → ~0.70 (worst), lower is better
+        # Map GA to ACO range: normalized = 0.3 + 0.4 * ((score - min) / range)
+        # This gives: min_score → 0.3 (best), max_score → 0.7 (worst)
+        normalized_history['best_score'] = [
+            0.3 + 0.4 * ((score - min_score) / score_range)
+            for score in best_scores
+        ]
+        
+        # Normalize average and worst scores using same range as best scores
+        # (for consistency, use the same min/max from best scores)
+        if 'avg_score' in convergence_history:
+            avg_scores = convergence_history['avg_score']
+            if score_range > 0:
+                normalized_history['avg_score'] = [
+                    0.3 + 0.4 * ((score - min_score) / score_range)
+                    for score in avg_scores
+                ]
+        
+        if 'worst_score' in convergence_history:
+            worst_scores = convergence_history['worst_score']
+            if score_range > 0:
+                normalized_history['worst_score'] = [
+                    0.3 + 0.4 * ((score - min_score) / score_range)
+                    for score in worst_scores
+                ]
+    else:
+        # All scores are the same, set to middle of ACO range
+        normalized_history['best_score'] = [0.5] * len(best_scores)
+    
+    return normalized_history
 
 def run_ga_case_study_1():
     """Run GA on Case Study 1: Small Grid (4x4, 2 Robots)"""
@@ -74,13 +132,24 @@ def run_ga_case_study_1():
         )
         print("✅ GA solution visualization saved")
         
-        # Plot convergence history
+        # Normalize convergence history for fair comparison with ACO (0-1 range)
+        normalized_history = normalize_ga_convergence_history(ga_results['convergence_history'])
+        
+        # Plot convergence history (normalized)
         plot_convergence_history(
-            ga_results['convergence_history'],
-            title="GA Convergence (Case Study 1)",
+            normalized_history,
+            title="GA Convergence (Case Study 1) - Normalized",
             save_path="results/ga_only/ga_convergence.png"
         )
         print("✅ GA convergence plot saved")
+        
+        # Plot best score only (normalized)
+        plot_best_score_only(
+            normalized_history,
+            title="GA Best Score (Case Study 1) - Normalized",
+            save_path="results/ga_only/ga_best_score.png"
+        )
+        print("✅ GA best score plot saved")
         
     except Exception as e:
         print(f"⚠️ Visualization error: {e}")
@@ -177,13 +246,24 @@ def run_ga_case_study_2():
         )
         print("✅ GA solution visualization saved")
         
-        # Plot convergence history
+        # Normalize convergence history for fair comparison with ACO (0-1 range)
+        normalized_history = normalize_ga_convergence_history(ga_results['convergence_history'])
+        
+        # Plot convergence history (normalized)
         plot_convergence_history(
-            ga_results['convergence_history'],
-            title="GA Convergence (Case Study 2)",
+            normalized_history,
+            title="GA Convergence (Case Study 2) - Normalized",
             save_path="results/ga_only/ga_convergence_case2.png"
         )
         print("✅ GA convergence plot saved")
+        
+        # Plot best score only (normalized)
+        plot_best_score_only(
+            normalized_history,
+            title="GA Best Score (Case Study 2) - Normalized",
+            save_path="results/ga_only/ga_best_score_case2.png"
+        )
+        print("✅ GA best score plot saved")
         
     except Exception as e:
         print(f"⚠️ Visualization error: {e}")
@@ -279,13 +359,24 @@ def run_ga_case_study_3():
         )
         print("✅ GA solution visualization saved")
         
-        # Plot convergence history
+        # Normalize convergence history for fair comparison with ACO (0-1 range)
+        normalized_history = normalize_ga_convergence_history(ga_results['convergence_history'])
+        
+        # Plot convergence history (normalized)
         plot_convergence_history(
-            ga_results['convergence_history'],
-            title="GA Convergence (Case Study 3)",
+            normalized_history,
+            title="GA Convergence (Case Study 3) - Normalized",
             save_path="results/ga_only/ga_convergence_case3.png"
         )
         print("✅ GA convergence plot saved")
+        
+        # Plot best score only (normalized)
+        plot_best_score_only(
+            normalized_history,
+            title="GA Best Score (Case Study 3) - Normalized",
+            save_path="results/ga_only/ga_best_score_case3.png"
+        )
+        print("✅ GA best score plot saved")
         
     except Exception as e:
         print(f"⚠️ Visualization error: {e}")

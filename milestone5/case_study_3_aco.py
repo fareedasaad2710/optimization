@@ -320,3 +320,7 @@ if __name__ == "__main__":
         print(f"\n❌ Error running Case Study 3: {e}")
         traceback.print_exc()
 
+
+
+
+

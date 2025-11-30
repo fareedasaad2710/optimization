@@ -155,6 +155,50 @@ def plot_convergence_history(convergence_history, title="Algorithm Convergence",
     plt.close()
 
 
+def plot_best_score_only(convergence_history, title="Best Score Convergence", save_path=None):
+    """
+    Plot only the best score over generations/iterations
+    
+    Args:
+        convergence_history: Dictionary with convergence data
+        title: Plot title
+        save_path: Path to save figure (optional)
+    """
+    fig, ax = plt.subplots(figsize=(10, 6))
+    
+    # Handle both SA and GA formats
+    if 'generation' in convergence_history:
+        iterations = convergence_history['generation']
+        xlabel = 'Generation'
+    elif 'iteration' in convergence_history:
+        iterations = convergence_history['iteration']
+        xlabel = 'Iteration'
+    else:
+        iterations = list(range(len(convergence_history.get('best_score', []))))
+        xlabel = 'Iteration'
+    
+    best_scores = convergence_history.get('best_score', [])
+    
+    # Plot best score only
+    ax.plot(iterations, best_scores, 'g-o', label='Best Score', linewidth=2.5, markersize=5, markevery=5)
+    
+    ax.set_xlabel(xlabel, fontsize=12)
+    ax.set_ylabel('Combined Score (lower = better)', fontsize=12)
+    ax.set_title(title, fontsize=14, fontweight='bold')
+    ax.legend(loc='best', fontsize=11)
+    ax.grid(True, alpha=0.3)
+    
+    plt.tight_layout()
+    
+    if save_path:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        print(f"✅ Best score plot saved to {save_path}")
+    else:
+        plt.show()
+    
+    plt.close()
+
+
 def plot_robot_paths(solution, grid_size, title="Robot Paths", save_path=None):
     """
     Visualize robot paths on the grid
