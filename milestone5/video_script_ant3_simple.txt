@@ -1,0 +1,114 @@
+VIDEO SCRIPT: ANT COLONY OPTIMIZATION - CASE STUDY 2
+Duration: 1.5 minutes
+Simple English Version
+
+═══════════════════════════════════════════════════════════════
+
+[0:00-0:15] INTRODUCTION
+───────────────────────────────────────────────────────────────
+• We're solving a multi-robot coverage problem
+• Three robots need to cover a 6 by 6 grid
+• Some cells have obstacles - robots can't go there
+• Goal: Cover every free cell efficiently
+
+[0:15-0:30] WHAT IS ANT COLONY OPTIMIZATION?
+───────────────────────────────────────────────────────────────
+• Inspired by real ants finding food
+• Ants leave chemical trails called pheromone
+• Other ants follow strong trails
+• Strong trails get stronger over time
+
+[0:30-0:50] HOW IT WORKS FOR ROBOTS
+───────────────────────────────────────────────────────────────
+• We use "virtual ants" to explore solutions
+• Each ant does two things:
+  1. DARP: Divides cells among robots (who covers what)
+  2. UF-STC: Builds paths for each robot (how to cover)
+
+[0:50-1:10] DESIRABILITY FUNCTION
+───────────────────────────────────────────────────────────────
+• Desirability (η) = 1 / (distance + γ × workload_imbalance)
+• Combines two things:
+  - How close cell is to robot start
+  - How balanced the workload is
+• Gamma (γ) controls balance vs distance preference
+• Higher desirability = better choice
+
+[1:10-1:30] PROBABILITY CALCULATION
+───────────────────────────────────────────────────────────────
+• Probability = (pheromone^α) × (desirability^β)
+• Alpha (α): How much we trust past experience
+• Beta (β): How much we trust desirability heuristic
+• High α = follow strong pheromone trails
+• High β = prefer closer, balanced assignments
+
+[1:30-1:50] PHEROMONE UPDATE
+───────────────────────────────────────────────────────────────
+• Step 1: EVAPORATION
+  - All pheromone decreases by factor ρ (rho)
+  - Old information fades over time
+  
+• Step 2: DEPOSIT (Ant Quantity Model)
+  - Each ant deposits pheromone = desirability value
+  - Good cells get more pheromone
+  - Future ants more likely to choose them
+
+[1:50-2:10] THE ITERATION PROCESS
+───────────────────────────────────────────────────────────────
+• Run 50 iterations
+• Each iteration:
+  1. 15 ants explore solutions
+  2. Calculate desirability for each cell-robot pair
+  3. Use probability to assign cells
+  4. Build paths with UF-STC
+  5. Update pheromone (evaporate + deposit)
+  6. Track best solution
+• After 50 iterations: best solution found
+
+[2:10-2:30] CASE STUDY 2 RESULTS
+───────────────────────────────────────────────────────────────
+• Ran algorithm 4 times to check reliability
+• Results:
+  ✓ 100% coverage - all 30 free cells covered
+  ✓ Workload imbalance: 12.00 (robots share work fairly)
+  ✓ Average runtime: 7.3 seconds (very fast!)
+• Best solution:
+  - Robot 0: covers 11 cells
+  - Robot 1: covers 21 cells  
+  - Robot 2: covers 19 cells
+• All paths are valid - no obstacles hit, no jumps
+
+[2:30-2:40] CONCLUSION
+───────────────────────────────────────────────────────────────
+• In just 7 seconds, ACO found excellent solution
+• Uses pheromone trails, desirability, and probability
+• Covers everything efficiently
+• Successfully balances coverage and workload
+• All three robots work together perfectly
+
+═══════════════════════════════════════════════════════════════
+
+KEY NUMBERS TO MENTION:
+• Grid: 6x6 (36 total cells)
+• Free cells: 30
+• Obstacles: 6
+• Robots: 3
+• Iterations: 50
+• Ants per iteration: 15
+• Coverage: 100% (30/30 cells)
+• Workload imbalance: 12.00
+• Runtime: 7.3 seconds
+
+KEY FORMULAS TO MENTION:
+• Desirability: η = 1 / (dist + γ|L_r - L̄|)
+• Probability: P ∝ τ^α × η^β
+• Pheromone Update: τ = τ × (1-ρ) + η
+• Parameters: α=1.0, β=1.0, γ=1.0, ρ=0.5
+
+VISUAL ELEMENTS NEEDED:
+1. Grid with obstacles (red squares)
+2. Robot paths (different colors per robot)
+3. Convergence graph
+4. Results table
+5. Final solution visualization
+

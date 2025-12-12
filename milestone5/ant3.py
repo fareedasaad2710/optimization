@@ -34,6 +34,7 @@ class ACOSolution:
         self.F2 = None  # Workload imbalance objective
         self.Lr = {}  # Path lengths per robot: {robot_id: Lr}
         self.fitness = None  # Combined fitness for ACO
+        self.combined_score = None  # Combined score: w1*(1-coverage) + w2*imbalance + penalty
         #keeps a copy of solution
     def copy(self):
         new_solution = ACOSolution(
@@ -53,7 +54,44 @@ class ACOSolution:
             new_solution.Lr = copy.deepcopy(self.Lr)
         if self.fitness is not None:
             new_solution.fitness = self.fitness
+        if self.combined_score is not None:
+            new_solution.combined_score = self.combined_score
         return new_solution
+    
+    def calculate_combined_score(self):
+
+        if self.F1 is None or self.F2 is None:
+            self.combined_score = float('inf')
+            return self.combined_score
+        
+        # Calculate coverage ratio (0 to 1, where 1 = 100% coverage)
+        max_possible_coverage = len(self.free_cells) if self.free_cells else 1
+        if max_possible_coverage == 0:
+            self.combined_score = float('inf')
+            return self.combined_score
+        
+        coverage_ratio = self.F1 / max_possible_coverage
+        coverage_term = 1 - coverage_ratio  # Convert to minimization (0 = perfect)
+        
+        # Get imbalance (F2 is already the workload imbalance)
+        imbalance_term = self.F2
+        
+        # Calculate penalty for constraint violations
+        penalty_term = calculate_penalty(self)
+        
+        # Set weights (same as GA)
+        w1 = 0.7  # We care 70% about coverage
+        w2 = 0.3  # We care 30% about balance
+        
+        # If we have perfect coverage, care more about balance
+        if coverage_ratio >= 1.0:
+            w1 = 0.5  # Reduce coverage weight
+            w2 = 0.5  # Increase balance weight
+        
+        # Calculate final score (lower = better)
+        self.combined_score = w1 * coverage_term + w2 * imbalance_term + penalty_term
+        return self.combined_score
+    
     #Ensure assignment matrix matches the paths
     def sync_assignment_with_paths(self):
         # Clear all assignments
@@ -507,8 +545,38 @@ def evaluate_objectives(solution: ACOSolution):
     solution.F1 = F1
     solution.F2 = F2
     
+    # Calculate combined score (same formula as GA)
+    solution.calculate_combined_score()
+    
     return F1, F2
 
+
+def calculate_penalty(solution: ACOSolution):
+
+    is_feasible, violations = is_solution_feasible(solution)
+    
+    if is_feasible:
+        return 0.0
+    
+    penalty = 0.0
+    
+    # Different penalties for different rule violations (same as GA)
+    penalty_factors = {
+        'out_of_bounds': 1000,    # BIG penalty: robot goes outside grid
+        'obstacle_collision': 500, # MEDIUM penalty: robot hits obstacle  
+        'path_jump': 100          # SMALL penalty: robot jumps between non-adjacent cells
+    }
+    
+    # Check each violation and add appropriate penalty
+    for violation in violations:
+        if "outside grid" in violation.lower() or "out of bounds" in violation.lower():
+            penalty += penalty_factors['out_of_bounds']
+        elif "obstacle" in violation.lower():
+            penalty += penalty_factors['obstacle_collision']
+        elif "jump" in violation.lower() or "not adjacent" in violation.lower():
+            penalty += penalty_factors['path_jump']
+    
+    return penalty
 
 
 	  #   Ant Colony Optimization for Multi-Robot Coverage Path Planning
@@ -586,6 +654,7 @@ class AntColonyOptimization:
         self.best_solution = None
         self.best_F1 = 0
         self.best_F2 = float('inf')
+        self.best_combined_score = float('inf')  # Best combined score (lower = better)
         self.history = []
     
 		#Get (x, y) coordinates from cell index
@@ -732,7 +801,6 @@ class AntColonyOptimization:
         # Step 2: Check connectivity and reassign unreachable cells
         # Helper function to check if a cell is reachable from a start position
         def is_reachable_from(start_idx, target_idx, free_cells_set, obstacles_set):
-            """Check if target cell is reachable from start using BFS"""
             if start_idx == target_idx:
                 return True
             
@@ -1168,39 +1236,13 @@ class AntColonyOptimization:
                     ant_solutions.append(solution)
                     feasible_count += 1
                     
-                    # Update best solution using proper multi-objective comparison
-                    # A solution is better if:
-                    # 1. It dominates (F1 >= best_F1 AND F2 <= best_F2, with at least one strict)
-                    # 2. OR it has significantly better coverage (F1 > best_F1) with acceptable F2
-                    # 3. OR it has same/better coverage (F1 >= best_F1) AND significantly better balance (F2 < best_F2)
-                    
-                    is_better = False
-                    
-                    # Case 1: Strict dominance (better in both or equal in one, better in other)
-                    if solution.F1 >= self.best_F1 and solution.F2 <= self.best_F2:
-                        if solution.F1 > self.best_F1 or solution.F2 < self.best_F2:
-                            is_better = True
-                    
-                    # Case 2: Much better coverage with acceptable imbalance
-                    # Accept if F1 improves by at least 2 AND F2 doesn't increase too much
-                    elif solution.F1 > self.best_F1 + 1:
-                        # Allow F2 to increase, but not more than 20% of current F2
-                        max_allowed_F2 = self.best_F2 * 1.2 if self.best_F2 > 0 else float('inf')
-                        if solution.F2 <= max_allowed_F2:
-                            is_better = True
-                    
-                    # Case 3: Same/better coverage with much better balance
-                    # Accept if F1 stays same or improves AND F2 improves significantly
-                    elif solution.F1 >= self.best_F1 and solution.F2 < self.best_F2:
-                        # F2 improvement must be at least 10% or 5 units
-                        improvement = self.best_F2 - solution.F2
-                        if improvement >= max(0.1 * self.best_F2, 5.0) if self.best_F2 > 0 else True:
-                            is_better = True
-                    
-                    if is_better:
+                    # Update best solution using combined_score (same as GA)
+                    # Lower combined_score = better solution
+                    if solution.combined_score is not None and solution.combined_score < self.best_combined_score:
                         self.best_solution = solution.copy()
                         self.best_F1 = solution.F1
                         self.best_F2 = solution.F2
+                        self.best_combined_score = solution.combined_score
             
             # Update pheromone trails
             if ant_solutions:
@@ -1211,6 +1253,7 @@ class AntColonyOptimization:
                 'iteration': iteration + 1,
                 'best_F1': self.best_F1,
                 'best_F2': self.best_F2,
+                'best_combined_score': self.best_combined_score,
                 'feasible_solutions': feasible_count,
                 'total_ants': self.num_ants
             })
@@ -1219,6 +1262,7 @@ class AntColonyOptimization:
             if verbose and (iteration % max(1, self.iterations // 10) == 0 or iteration == self.iterations - 1):
                 print(f"Iteration {iteration + 1}/{self.iterations}: "
                       f"F1={self.best_F1}, F2={self.best_F2:.2f}, "
+                      f"Combined Score={self.best_combined_score:.4f}, "
                       f"Feasible={feasible_count}/{self.num_ants}")
         
         print(f"\n{'='*70}")
@@ -1228,6 +1272,7 @@ class AntColonyOptimization:
             print(f"Best Solution:")
             print(f"  • F1 (Coverage): {self.best_F1}/{len(self.free_cells)} cells")
             print(f"  • F2 (Workload Imbalance): {self.best_F2:.2f}")
+            print(f"  • Combined Score: {self.best_combined_score:.4f} (lower = better)")
             print(f"  • Robot Path Lengths: {self.best_solution.Lr}")
         print(f"{'='*70}\n")
         

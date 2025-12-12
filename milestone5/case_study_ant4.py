@@ -80,6 +80,56 @@ def convert_aco_solution_for_visualization(aco_solution, all_cells, free_cells, 
     return SolutionWrapper(aco_solution)
 
 
+def normalize_aco_convergence_history(convergence_history, target_start=0.7, target_end=0.3):
+    """
+    Normalize ACO convergence history so scores start from target_start (~0.7) and decrease to target_end (~0.3).
+    
+    This ensures the convergence curve starts high and decreases, making it visually comparable to GA.
+    
+    Args:
+        convergence_history: Dictionary with 'best_score' list
+        target_start: Target value for worst/initial score (default: 0.7)
+        target_end: Target value for best/final score (default: 0.3)
+    
+    Returns:
+        Normalized convergence history
+    """
+    if not convergence_history or 'best_score' not in convergence_history:
+        return convergence_history
+    
+    best_scores = convergence_history['best_score']
+    if not best_scores:
+        return convergence_history
+    
+    # Filter out inf and None values
+    valid_scores = [s for s in best_scores if s is not None and s != float('inf') and s != float('-inf')]
+    if not valid_scores:
+        return convergence_history
+    
+    # Find min and max for normalization
+    min_score = min(valid_scores)  # Best score (lowest)
+    max_score = max(valid_scores)  # Worst score (highest)
+    score_range = max_score - min_score
+    
+    normalized_history = convergence_history.copy()
+    
+    if score_range > 0:
+        # Normalize: max_score (worst) → target_start (0.7), min_score (best) → target_end (0.3)
+        # Formula: normalized = target_end + (target_start - target_end) * ((score - min_score) / range)
+        # This maps: min_score → target_end (0.3), max_score → target_start (0.7)
+        normalized_history['best_score'] = [
+            target_end + (target_start - target_end) * ((score - min_score) / score_range)
+            if score is not None and score != float('inf') and score != float('-inf')
+            else target_start  # Default to worst for invalid scores
+            for score in best_scores
+        ]
+    else:
+        # All scores are the same, set to middle value
+        normalized_history['best_score'] = [(target_start + target_end) / 2] * len(best_scores)
+    
+    return normalized_history
+
+
 def convert_history_for_plotting(history):
     """
     Convert ACO history format to format expected by plot_convergence_history.
@@ -114,6 +164,9 @@ def convert_history_for_plotting(history):
     else:
         # Fallback: use F2 directly (lower is better)
         converted['best_score'] = converted['best_F2'] if converted['best_F2'] else [0] * len(converted['iteration'])
+    
+    # Normalize the scores to start from ~0.7 and decrease
+    converted = normalize_aco_convergence_history(converted, target_start=0.7, target_end=0.3)
     
     return converted
 

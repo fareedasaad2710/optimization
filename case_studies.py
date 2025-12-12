@@ -14,6 +14,9 @@ from visualization import visualize_solution, plot_convergence_history, save_all
 import os
 import traceback
 import time
+import sys
+sys.path.append(os.path.join(os.path.dirname(__file__), 'milestone6'))
+from dragonfly_haggar import DragonflyOptimizer
 
 
 def case_study_1_small_grid():
@@ -333,6 +336,235 @@ def case_study_2_medium_grid():
         'comparison': comparison,
         'ga_runtime': ga_runtime,
         'sa_runtime': sa_runtime
+    }
+
+
+def case_study_2_with_dragonfly():
+    """
+    Case Study 2: Medium Grid with Dragonfly Algorithm
+    Grid: 6x6
+    Robots: 3
+    Obstacles: Moderate number of obstacles
+    Purpose: Test Dragonfly algorithm on case study 2
+    """
+    print("\n" + "="*80)
+    print("CASE STUDY 2: MEDIUM GRID (6x6, 3 Robots) - DRAGONFLY ALGORITHM")
+    print("="*80)
+    
+    # Problem parameters
+    grid_width, grid_height = 6, 6
+    num_robots = 3
+    obstacles = [1, 7, 13, 19, 25, 31]  # 6 obstacles
+    
+    all_cells = [(x, y) for y in range(grid_height) for x in range(grid_width)]
+    free_cells = [i for i in range(grid_width * grid_height) if i not in obstacles]
+    num_cells = len(all_cells)
+    
+    print("\nProblem Configuration:")
+    print(f"  Grid Size: {grid_width}x{grid_height}")
+    print(f"  Total Cells: {num_cells}")
+    print(f"  Free Cells: {len(free_cells)}")
+    print(f"  Obstacles: {len(obstacles)}")
+    print(f"  Robots: {num_robots}")
+    
+    # Import solution class
+    from sa_algorithm import RobotCoverageSolution
+    import random
+    import copy
+    
+    # Create wrapper class compatible with dragonfly_haggar
+    class DragonflySolution:
+        """Wrapper solution class for dragonfly optimizer"""
+        def __init__(self, assignment, paths, all_cells, free_cells, obstacles, grid_width, grid_height):
+            # Convert assignment from 2D list to 1D list (assignment[i] = robot_id)
+            self.assignment_2d = copy.deepcopy(assignment)  # Keep original format
+            self.assignment = [-1] * num_cells  # 1D format for dragonfly
+            for cell_idx in range(num_cells):
+                for robot_id in range(num_robots):
+                    if assignment[cell_idx][robot_id] == 1:
+                        self.assignment[cell_idx] = robot_id
+                        break
+            
+            # Ensure paths is a list of lists (not dict)
+            if isinstance(paths, dict):
+                self.paths = [paths.get(r, []) for r in range(num_robots)]
+            else:
+                self.paths = copy.deepcopy(paths)
+            
+            self.all_cells = all_cells
+            self.free_cells = free_cells
+            self.obstacles = obstacles
+            self.grid_width = grid_width
+            self.grid_height = grid_height
+            self.combined_score = None
+        
+        def sync_assignment_from_paths(self):
+            """Update assignment from paths"""
+            self.assignment = [-1] * num_cells
+            for robot_id, path in enumerate(self.paths):
+                for cell_idx in path:
+                    if 0 <= cell_idx < num_cells:
+                        self.assignment[cell_idx] = robot_id
+    
+    # Callback functions for dragonfly optimizer
+    def generate_initial_solution():
+        """Generate random initial solution"""
+        assignment = [[0 for _ in range(num_robots)] for _ in range(num_cells)]
+        paths = [[] for _ in range(num_robots)]
+        
+        # Randomly assign free cells to robots
+        for cell_idx in free_cells:
+            robot_id = random.randint(0, num_robots - 1)
+            assignment[cell_idx][robot_id] = 1
+            paths[robot_id].append(cell_idx)
+        
+        # Shuffle paths
+        for robot_id in range(num_robots):
+            random.shuffle(paths[robot_id])
+        
+        return DragonflySolution(assignment, paths, all_cells, free_cells, obstacles, grid_width, grid_height)
+    
+    def evaluate(sol):
+        """Evaluate solution and return cost (lower is better)"""
+        # Convert to RobotCoverageSolution format for evaluation
+        sa_sol = RobotCoverageSolution(
+            sol.assignment_2d if hasattr(sol, 'assignment_2d') else 
+            [[1 if sol.assignment[i] == r else 0 for r in range(num_robots)] 
+             for i in range(num_cells)],
+            {r: sol.paths[r] for r in range(num_robots)},
+            all_cells, free_cells, obstacles, grid_width, grid_height
+        )
+        cost = sa_sol.evaluate()
+        sol.combined_score = cost
+        return cost
+    
+    def repair(sol):
+        """Repair solution to ensure path continuity"""
+        # Simple repair: ensure paths only contain valid cells
+        for robot_id in range(num_robots):
+            # Remove obstacles and invalid cells
+            sol.paths[robot_id] = [c for c in sol.paths[robot_id] 
+                                  if c in free_cells and 0 <= c < num_cells]
+            # Remove duplicates while preserving order
+            seen = set()
+            unique_path = []
+            for c in sol.paths[robot_id]:
+                if c not in seen:
+                    unique_path.append(c)
+                    seen.add(c)
+            sol.paths[robot_id] = unique_path
+        
+        # Sync assignment
+        sol.sync_assignment_from_paths()
+        
+        # Update assignment_2d
+        sol.assignment_2d = [[0 for _ in range(num_robots)] for _ in range(num_cells)]
+        for cell_idx in range(num_cells):
+            if sol.assignment[cell_idx] >= 0:
+                sol.assignment_2d[cell_idx][sol.assignment[cell_idx]] = 1
+    
+    def compute_path_lengths(sol):
+        """Compute path lengths for each robot"""
+        lengths = []
+        for robot_id in range(num_robots):
+            path = sol.paths[robot_id]
+            if len(path) < 2:
+                lengths.append(0.0)
+                continue
+            
+            total_dist = 0.0
+            for i in range(len(path) - 1):
+                cell1 = all_cells[path[i]]
+                cell2 = all_cells[path[i + 1]]
+                # Manhattan distance
+                dist = abs(cell1[0] - cell2[0]) + abs(cell1[1] - cell2[1])
+                total_dist += dist
+            lengths.append(total_dist)
+        
+        return lengths
+    
+    # Dragonfly algorithm parameters
+    dragonfly_params = {
+        'population_size': 20,
+        'max_iterations': 100,
+        'w_sep': 0.2,
+        'w_align': 0.2,
+        'w_coh': 0.2,
+        'w_food': 0.2,
+        'w_enemy': 0.2,
+        'initial_radius': 0.3,
+    }
+    
+    print(f"\nDragonfly Parameters: {dragonfly_params}")
+    
+    os.makedirs("results/case_study_2_dragonfly", exist_ok=True)
+    
+    # Run Dragonfly algorithm
+    print("\n" + "-"*80)
+    print("Running Dragonfly Algorithm...")
+    print("-"*80)
+    
+    dragonfly_start_time = time.time()
+    
+    optimizer = DragonflyOptimizer(
+        num_cells=num_cells,
+        num_robots=num_robots,
+        generate_initial_solution=generate_initial_solution,
+        evaluate=evaluate,
+        repair=repair,
+        compute_path_lengths=compute_path_lengths,
+        **dragonfly_params
+    )
+    
+    best_solution, best_cost = optimizer.run()
+    
+    dragonfly_end_time = time.time()
+    dragonfly_runtime = dragonfly_end_time - dragonfly_start_time
+    
+    print(f"\n⏱️  Dragonfly Runtime: {dragonfly_runtime:.2f} seconds ({dragonfly_runtime/60:.2f} minutes)")
+    print(f"Best Cost: {best_cost:.4f}")
+    
+    # Convert to RobotCoverageSolution for visualization
+    dragonfly_solution = RobotCoverageSolution(
+        best_solution.assignment_2d if hasattr(best_solution, 'assignment_2d') else
+        [[1 if best_solution.assignment[i] == r else 0 for r in range(num_robots)]
+         for i in range(num_cells)],
+        {r: best_solution.paths[r] for r in range(num_robots)},
+        all_cells, free_cells, obstacles, grid_width, grid_height
+    )
+    dragonfly_solution.evaluate()
+    
+    print(f"\nDragonfly Solution Metrics:")
+    print(f"  • Combined Score: {dragonfly_solution.combined_score:.4f}")
+    if dragonfly_solution.fitness:
+        coverage_ratio = dragonfly_solution.fitness.get('coverage_score', 0) / len(free_cells) if len(free_cells) > 0 else 0
+        print(f"  • Coverage: {coverage_ratio*100:.2f}% ({dragonfly_solution.fitness.get('coverage_score', 0)}/{len(free_cells)} cells)")
+        print(f"  • Balance Score: {dragonfly_solution.fitness.get('balance_score', 0):.4f}")
+        print(f"  • Problems: {len(dragonfly_solution.fitness.get('problems', []))}")
+    
+    # Generate visualization
+    print("\n" + "="*80)
+    print("📊 GENERATING VISUALIZATIONS")
+    print("="*80)
+    
+    try:
+        visualize_solution(
+            dragonfly_solution,
+            title="Case Study 2: Dragonfly Best Solution",
+            save_path="results/case_study_2_dragonfly/dragonfly_solution.png"
+        )
+        print("✅ Dragonfly solution visualization saved")
+    except Exception as e:
+        print(f"⚠️ Visualization error: {e}")
+        traceback.print_exc()
+    
+    print("\n✅ Case Study 2 (Dragonfly) completed!")
+    print(f"Results saved to: results/case_study_2_dragonfly/")
+    
+    return {
+        'dragonfly': dragonfly_solution,
+        'best_cost': best_cost,
+        'runtime': dragonfly_runtime
     }
 
 
