@@ -10,9 +10,11 @@ import numpy as np
 import random
 from typing import List, Tuple, Dict
 from problem_formulation import (
-    RobotCoverageSolution,
-    calculate_objective,
-    validate_solution
+    evaluate_solution,
+    find_neighbors,
+    calculate_robot_distances,
+    distance_between_points,
+    create_grid_cells
 )
 from DARP import darp_partition
 from UF_STC import construct_spanning_tree_paths
@@ -52,14 +54,6 @@ class DragonflySolution:
         # Stagnancy counter (for random re-initialization / escape)
         self.stagnancy: int = 0
 
-    def to_robot_solution(self) -> RobotCoverageSolution:
-        """Convert to RobotCoverageSolution for compatibility."""
-        return RobotCoverageSolution(
-            self.paths,
-            self.grid_width,
-            self.grid_height,
-            self.obstacles
-        )
 
 
 class DragonflyOptimizer:
@@ -525,7 +519,7 @@ class DragonflyOptimizer:
         self.f_weight = 2.0 * t + 0.1
         self.e_weight = 1.0 * t + 0.1
 
-    def optimize(self) -> Tuple[RobotCoverageSolution, Dict]:
+    def optimize(self) -> Tuple[Dict[int, List[int]], Dict[int, List[int]], Dict]:
         """
         Run Dragonfly Algorithm optimization.
 
@@ -688,7 +682,7 @@ class DragonflyOptimizer:
             print(f"Final best fitness: {self.food.fitness:.4f}")
 
         # Return best solution
-        return self.food.to_robot_solution(), self.history
+        return self.food.partition, self.food.paths, self.history
 
     def dedupe_moves(self, moves: List[Tuple[int, int, int]]) -> List[Tuple[int, int, int]]:
         """
@@ -833,3 +827,89 @@ def dragonfly_algorithm(
         "best_solution": best_solution,
         "history": history
     }
+
+if __name__ == "__main__":
+    import time
+    import os
+    import traceback
+
+    # --- Case Study 2 config (same as your case_studies.py) ---
+    grid_width, grid_height = 6, 6
+    num_robots = 3
+    obstacles = [1, 7, 13, 19, 25, 31]
+
+    all_cells = [(x, y) for y in range(grid_height) for x in range(grid_width)]
+    free_cells = [i for i in range(grid_width * grid_height) if i not in obstacles]
+
+    # --- Dragonfly params ---
+    population_size = 20
+    max_iterations = 100
+    verbose = True
+
+    print("\n" + "=" * 80)
+    print("RUNNING DRAGONFLY - CASE STUDY 2 (6x6, 3 robots)")
+    print("=" * 80)
+    print(f"Grid: {grid_width}x{grid_height}")
+    print(f"Robots: {num_robots}")
+    print(f"Obstacles: {len(obstacles)} -> {obstacles}")
+    print(f"Free cells: {len(free_cells)}")
+    print(f"Params: population_size={population_size}, max_iterations={max_iterations}")
+    print("=" * 80)
+
+    # --- Run ---
+    start = time.time()
+    try:
+        results = dragonfly_algorithm(
+            all_cells=all_cells,
+            free_cells=free_cells,
+            obstacles=obstacles,
+            grid_width=grid_width,
+            grid_height=grid_height,
+            num_robots=num_robots,
+            population_size=population_size,
+            max_iterations=max_iterations,
+            verbose=verbose,
+        )
+    except Exception as e:
+        print(f"❌ Dragonfly run failed: {e}")
+        traceback.print_exc()
+        raise
+    end = time.time()
+
+    best_solution = results["best_solution"]
+    history = results["history"]
+
+    print("\n" + "-" * 80)
+    print("✅ DRAGONFLY DONE")
+    print("-" * 80)
+    print(f"Runtime: {end - start:.2f}s ({(end - start)/60:.2f} min)")
+
+    # If your RobotCoverageSolution has these helpers, print them (safe checks)
+    try:
+        if hasattr(best_solution, "combined_score") and best_solution.combined_score is not None:
+            print(f"Best combined_score: {best_solution.combined_score:.4f}")
+    except Exception:
+        pass
+
+    try:
+        if hasattr(best_solution, "get_coverage_efficiency"):
+            print(f"Coverage efficiency: {best_solution.get_coverage_efficiency():.2f}%")
+    except Exception:
+        pass
+
+    try:
+        if hasattr(best_solution, "get_workload_balance_index"):
+            print(f"Balance index: {best_solution.get_workload_balance_index():.4f}")
+    except Exception:
+        pass
+
+    # Optional: save history to a file
+    try:
+        os.makedirs("results/case_study_2_dragonfly", exist_ok=True)
+        out_path = "results/case_study_2_dragonfly/dragonfly_history.txt"
+        with open(out_path, "w") as f:
+            for it, bf, af in zip(history["iteration"], history["best_fitness"], history["avg_fitness"]):
+                f.write(f"{it}\t{bf}\t{af}\n")
+        print(f"📄 Saved history to: {out_path}")
+    except Exception as e:
+        print(f"⚠️ Could not save history file: {e}")
