@@ -33,3 +33,6 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+
+# Large PDF files (excluded to speed up git operations)
+*.pdf
