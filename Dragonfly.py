@@ -16,9 +16,107 @@ from problem_formulation import (
     distance_between_points,
     create_grid_cells
 )
-from DARP import darp_partition
-from UF_STC import construct_spanning_tree_paths
 
+from types import SimpleNamespace
+
+
+def darp_partition(
+    grid_width: int,
+    grid_height: int,
+    robot_positions: List[int],
+    obstacles: List[int],
+) -> Dict[int, List[int]]:
+    """
+    Simple DARP replacement:
+    - Distributes free cells evenly across robots
+    - Ensures every cell is assigned to exactly one robot
+    - Satisfies coverage constraints
+    """
+
+    num_robots = len(robot_positions)
+    total_cells = grid_width * grid_height
+
+    free_cells = [i for i in range(total_cells) if i not in obstacles]
+
+    partition = {r: [] for r in range(num_robots)}
+
+    # Round-robin assignment of cells
+    for idx, cell in enumerate(free_cells):
+        robot_id = idx % num_robots
+        partition[robot_id].append(cell)
+
+    return partition
+from collections import deque
+
+def construct_spanning_tree_paths(
+    partition: Dict[int, List[int]],
+    grid_width: int,
+    grid_height: int,
+    obstacles: List[int],
+) -> Dict[int, List[int]]:
+    """
+    UF-STC replacement (drop-in):
+    Creates a traversal path for each robot over its assigned cells.
+
+    Output format:
+        paths: {robot_id: [cell_idx1, cell_idx2, ...]}
+
+    Strategy:
+    - For each robot region (set of cells), build adjacency (4-neighbors)
+    - Run BFS from a start cell to get an order that is *mostly* adjacent
+    - If region is disconnected, BFS covers one component then we append the rest
+    """
+
+    obstacles_set = set(obstacles)
+    total_cells = grid_width * grid_height
+
+    def neighbors(cell: int) -> List[int]:
+        x = cell % grid_width
+        y = cell // grid_width
+        nbrs = []
+        for dx, dy in ((1,0), (-1,0), (0,1), (0,-1)):
+            nx, ny = x + dx, y + dy
+            if 0 <= nx < grid_width and 0 <= ny < grid_height:
+                n = ny * grid_width + nx
+                if n not in obstacles_set:
+                    nbrs.append(n)
+        return nbrs
+
+    paths: Dict[int, List[int]] = {}
+
+    for r, cells in partition.items():
+        region = set(cells)
+        if not region:
+            paths[r] = []
+            continue
+
+        # pick a deterministic start (smallest index)
+        start = min(region)
+
+        visited = set()
+        order: List[int] = []
+
+        # BFS on induced subgraph (only within region)
+        q = deque([start])
+        visited.add(start)
+
+        while q:
+            u = q.popleft()
+            order.append(u)
+
+            for v in neighbors(u):
+                if v in region and v not in visited:
+                    visited.add(v)
+                    q.append(v)
+
+        # If disconnected: append remaining cells (still valid coverage, may jump)
+        if len(visited) < len(region):
+            remaining = sorted(region - visited)
+            order.extend(remaining)
+
+        paths[r] = order
+
+    return paths
 
 class DragonflySolution:
     """Represents a dragonfly individual (solution)."""
@@ -55,10 +153,7 @@ class DragonflySolution:
         self.stagnancy: int = 0
 
 
-
 class DragonflyOptimizer:
-    """Dragonfly Algorithm optimizer for multi-robot coverage."""
-
     def __init__(
         self,
         all_cells: List[Tuple[int, int]],
@@ -77,53 +172,52 @@ class DragonflyOptimizer:
         f_weight: float = 2.0,
         e_weight: float = 1.0,
         verbose: bool = True,
-        neighbor_similarity_threshold: float = 0.6,  # ✅ MOVED HERE (was incorrectly in DragonflySolution)
+        neighbor_similarity_threshold: float = 0.6,
     ):
         """
         Initialize Dragonfly Optimizer.
-
-        Args:
-            all_cells: List of all (x, y) coordinates
-            free_cells: List of free cell indices
-            obstacles: List of obstacle cell indices
-            grid_width: Grid width
-            grid_height: Grid height
-            num_robots: Number of robots
-            population_size: Population size (P)
-            max_iterations: Maximum iterations (T)
-            neighbor_size: Number of neighbors (K)
-            w: Inertia weight
-            s_weight: Separation weight
-            a_weight: Alignment weight
-            c_weight: Cohesion weight
-            f_weight: Food attraction weight
-            e_weight: Enemy distraction weight
-            verbose: Print progress
-            neighbor_similarity_threshold: threshold for similarity-based neighborhood
+        (Drop-in fixed version: removes duplicate all_cells assignment + stores grid_height)
         """
-        self.all_cells = all_cells
-        self.free_cells = free_cells
-        self.obstacles = obstacles
+
+        # ---- core environment ----
         self.grid_width = grid_width
-        self.grid_height = grid_height
+        self.grid_height = grid_height          # ✅ FIX: was missing -> caused AttributeError
         self.num_robots = num_robots
+
+        self.free_cells = list(free_cells)
+        self.obstacles = list(obstacles)
+
+        # ---- cell representation ----
+        # Your problem_formulation.calculate_robot_distances expects objects with .x and .y
+        # So we keep SimpleNamespace cells even if all_cells is passed as tuples.
+        self.all_cells = [
+            SimpleNamespace(x=x, y=y)
+            for y in range(grid_height)
+            for x in range(grid_width)
+        ]
+
+        # (Optional safety) if you passed a different all_cells, we just ignore it to keep consistency
+        # If you want to *use* the passed all_cells instead, tell me and I’ll adapt it safely.
+
+        # ---- DA hyperparameters ----
         self.population_size = population_size
         self.max_iterations = max_iterations
         self.neighbor_size = neighbor_size
+
         self.w = w
         self.s_weight = s_weight
         self.a_weight = a_weight
         self.c_weight = c_weight
         self.f_weight = f_weight
         self.e_weight = e_weight
+
         self.verbose = verbose
+        self.neighbor_similarity_threshold = neighbor_similarity_threshold  # ✅ used by get_neighbors()
 
-        # ✅ Used by get_neighbors()
-        self.neighbor_similarity_threshold = neighbor_similarity_threshold
-
+        # ---- runtime state ----
         self.population: List[DragonflySolution] = []
-        self.food: DragonflySolution | None = None   # Best solution
-        self.enemy: DragonflySolution | None = None  # Worst solution
+        self.food: DragonflySolution | None = None   # best
+        self.enemy: DragonflySolution | None = None  # worst
         self.history = {"iteration": [], "best_fitness": [], "avg_fitness": []}
 
     def initialize_population(self):
@@ -160,6 +254,25 @@ class DragonflyOptimizer:
         # Initialize food (best) and enemy (worst)
         self.update_food_and_enemy()
 
+    # ✅ FIX (minimal): bridge DA partition -> your assignment matrix
+    def partition_to_assignment(self, partition: Dict[int, List[int]]) -> List[List[int]]:
+        """
+        Convert partition {robot_id: [cells...]} into assignment matrix assignment[cell][robot].
+
+        This is required because problem_formulation.evaluate_solution() expects
+        an assignment matrix + paths.
+        """
+        total_cells = self.grid_width * self.grid_height
+        assignment = [[0 for _ in range(self.num_robots)] for _ in range(total_cells)]
+
+        # obstacles remain all-zero
+        for r, cells in partition.items():
+            for c in cells:
+                if 0 <= c < total_cells and c not in self.obstacles:
+                    assignment[c][r] = 1
+
+        return assignment
+
     def evaluate_fitness(
         self,
         partition: Dict[int, List[int]],
@@ -169,26 +282,31 @@ class DragonflyOptimizer:
         Evaluate fitness of a solution (lower is better).
 
         Fitness = -Coverage + λ * Workload_Imbalance
-        """
-        # Calculate coverage
-        covered_cells = set()
-        for cells in partition.values():
-            covered_cells.update(cells)
-        coverage = len(covered_cells)
 
-        # Calculate workload imbalance
-        path_lengths = [len(path) for path in paths.values()]
-        if len(path_lengths) > 0:
-            avg_length = np.mean(path_lengths)
-            imbalance = sum(abs(length - avg_length) for length in path_lengths)
-        else:
-            imbalance = 0
+        ✅ FIX: now uses your evaluate_solution() (coverage + balance) correctly.
+        """
+        # Convert partition to assignment matrix for evaluator compatibility
+        assignment = self.partition_to_assignment(partition)
+
+        # Use your evaluation function (from problem_formulation.py)
+        results = evaluate_solution(
+            assignment=assignment,
+            paths=paths,
+            all_cells=self.all_cells,
+            free_cells=self.free_cells,
+            obstacles=self.obstacles,
+            grid_width=self.grid_width,
+            grid_height=self.grid_height
+        )
+
+        coverage = results.get("coverage_score", 0)
+        balance = results.get("balance_score", 0.0)
 
         # Combined fitness (minimize)
         lambda_balance = 0.5
-        fitness = -coverage + lambda_balance * imbalance
+        fitness = -coverage + lambda_balance * balance
 
-        return fitness
+        return float(fitness)
 
     def update_food_and_enemy(self):
         """Update food (best) and enemy (worst) solutions."""
@@ -264,7 +382,7 @@ class DragonflyOptimizer:
                 if c in neighbor.partition.get(r, [])
             )
 
-            if same / total_cells > 0.8:  # too similar
+            if total_cells > 0 and same / total_cells > 0.8:  # too similar
                 for r, cells in solution.partition.items():
                     if cells:
                         cell = random.choice(cells)
@@ -415,7 +533,7 @@ class DragonflyOptimizer:
             common = my_cells & enemy_cells
 
             # If overlap with enemy is large → push away
-            if common and len(common) > 0.5 * len(my_cells):
+            if common and len(my_cells) > 0 and len(common) > 0.5 * len(my_cells):
                 cells_to_move = random.sample(
                     list(common),
                     max(1, len(common) // 4)
@@ -524,7 +642,7 @@ class DragonflyOptimizer:
         Run Dragonfly Algorithm optimization.
 
         Returns:
-            Tuple of (best_solution, history)
+            Tuple of (best_partition, best_paths, history)
         """
         # Step 1: Initialize population
         self.initialize_population()
@@ -578,7 +696,6 @@ class DragonflyOptimizer:
                 # (5) Enemy distraction factor  E_i
                 # Eq (5):  E_i = X^-  +  X_i
                 E = self.enemy_moves(solution, self.enemy)
-
 
                 # ------------------------------------------------------------
                 # Step update (paper Eq 6) is:
@@ -681,7 +798,7 @@ class DragonflyOptimizer:
             print(f"\nOptimization complete!")
             print(f"Final best fitness: {self.food.fitness:.4f}")
 
-        # Return best solution
+        # Return best solution (partition + paths) instead of RobotCoverageSolution
         return self.food.partition, self.food.paths, self.history
 
     def dedupe_moves(self, moves: List[Tuple[int, int, int]]) -> List[Tuple[int, int, int]]:
@@ -821,10 +938,13 @@ def dragonfly_algorithm(
         verbose=verbose
     )
 
-    best_solution, history = optimizer.optimize()
+    best_partition, best_paths, history = optimizer.optimize()
 
     return {
-        "best_solution": best_solution,
+        "best_solution": {
+            "partition": best_partition,
+            "paths": best_paths
+        },
         "history": history
     }
 
@@ -832,6 +952,7 @@ if __name__ == "__main__":
     import time
     import os
     import traceback
+    from types import SimpleNamespace
 
     # --- Case Study 2 config (same as your case_studies.py) ---
     grid_width, grid_height = 6, 6
@@ -879,29 +1000,51 @@ if __name__ == "__main__":
     best_solution = results["best_solution"]
     history = results["history"]
 
+    best_partition = best_solution["partition"]
+    best_paths = best_solution["paths"]
+
     print("\n" + "-" * 80)
     print("✅ DRAGONFLY DONE")
     print("-" * 80)
     print(f"Runtime: {end - start:.2f}s ({(end - start)/60:.2f} min)")
 
-    # If your RobotCoverageSolution has these helpers, print them (safe checks)
-    try:
-        if hasattr(best_solution, "combined_score") and best_solution.combined_score is not None:
-            print(f"Best combined_score: {best_solution.combined_score:.4f}")
-    except Exception:
-        pass
+    # ✅ Evaluate + print final metrics using your evaluator
+    optimizer_tmp = DragonflyOptimizer(
+        all_cells=all_cells,
+        free_cells=free_cells,
+        obstacles=obstacles,
+        grid_width=grid_width,
+        grid_height=grid_height,
+        num_robots=num_robots,
+        population_size=1,
+        max_iterations=1,
+        verbose=False
+    )
 
-    try:
-        if hasattr(best_solution, "get_coverage_efficiency"):
-            print(f"Coverage efficiency: {best_solution.get_coverage_efficiency():.2f}%")
-    except Exception:
-        pass
+    # ✅ FIX 1: assignment must be created from best_partition
+    assignment = optimizer_tmp.partition_to_assignment(best_partition)
 
-    try:
-        if hasattr(best_solution, "get_workload_balance_index"):
-            print(f"Balance index: {best_solution.get_workload_balance_index():.4f}")
-    except Exception:
-        pass
+    # ✅ FIX 2: evaluator expects cells with .x/.y (not tuples)
+    all_cells_obj = [SimpleNamespace(x=x, y=y) for (x, y) in all_cells]
+
+    final_eval = evaluate_solution(
+        assignment=assignment,
+        paths=best_paths,
+        all_cells=all_cells_obj,
+        free_cells=free_cells,
+        obstacles=obstacles,
+        grid_width=grid_width,
+        grid_height=grid_height
+    )
+
+    print(f"Coverage score: {final_eval.get('coverage_score', 0)} / {len(free_cells)}")
+    print(f"Balance score:  {final_eval.get('balance_score', 0.0):.4f}")
+    if final_eval.get("problems"):
+        print(f"Problems found: {len(final_eval['problems'])} (showing up to 10)")
+        for p in final_eval["problems"][:10]:
+            print("  -", p)
+    else:
+        print("✓ No problems found by evaluator.")
 
     # Optional: save history to a file
     try:
