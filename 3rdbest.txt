@@ -1,0 +1,953 @@
+➜  optimization_project git:(ms4) ✗ python3 run_ga_only.py 2
+
+================================================================================
+🧬 GA ONLY RUNNER
+================================================================================
+
+This script runs ONLY the Genetic Algorithm (GA)
+No Simulated Annealing (SA) will be executed
+================================================================================
+
+================================================================================
+RUNNING GA ONLY - CASE STUDY 2: MEDIUM GRID (6x6, 3 Robots)
+================================================================================
+
+Problem Configuration:
+  Grid Size: 6x6
+  Free Cells: 30
+  Obstacles: 6
+  Robots: 3
+
+GA Parameters: {'population_size': 50, 'generations': 100, 'selection_percentage': 0.1, 'crossover_percentage': 0.8, 'mutation_percentage': 0.1}
+
+--------------------------------------------------------------------------------
+Running Genetic Algorithm...
+--------------------------------------------------------------------------------
+
+======================================================================
+🧬 STARTING GENETIC ALGORITHM
+======================================================================
+📋 Parameters:
+   • Population Size:    50
+   • Generations:        100
+   • Population Strategy:
+     - Selection (Elite): 10%
+     - Crossover:         80%
+     - Mutation:          10%
+======================================================================
+
+🔄 STEP 1: Initializing Population (Generation 0)
+   Creating 50 random solutions...
+   ✅ Population initialized!
+   🔍 Initial Population Path Check (first 3 solutions):
+      Solution 1: Total path cells = 30/30
+         Robot 0: 11 cells
+         Robot 1: 7 cells
+         Robot 2: 12 cells
+      Solution 2: Total path cells = 30/30
+         Robot 0: 6 cells
+         Robot 1: 14 cells
+         Robot 2: 10 cells
+      Solution 3: Total path cells = 30/30
+         Robot 0: 8 cells
+         Robot 1: 11 cells
+         Robot 2: 11 cells
+      ... (showing first 3 of 50 solutions)
+   ✅ Population initialized!
+   📊 Initial Statistics:
+      • Best Score:     1902.273
+      • Average Score:  2461.248
+      • Worst Score:    2702.160
+      • Coverage:       30/30 cells
+      • Balance:        4.546
+
+
+──────────────────────────────────────────────────────────────────────
+🔄 GENERATION 0
+──────────────────────────────────────────────────────────────────────
+
+======================================================================
+📋 GENERATION 0 - DETAILED STEP-BY-STEP TRACE
+======================================================================
+
+🔍 STEP 0: Current Population (Generation 0)
+   Population Size: 50
+   Showing first 3 solutions with assignments and paths (showing all would be too long):
+
+   Solution 1 (Score: 2606.980):
+      Total Path Cells: 30/30
+      Robot 0:
+         Assignment: 11 cells → [5, 8, 9, 11, 12, 18, 20, 24, 27, 28, 35]
+         Path: 11 cells → [27, 24, 11, 8, 28, 35, 12, 5, 9, 20, 18]
+         ✅ Assignment and Path are consistent
+      Robot 1:
+         Assignment: 7 cells → [3, 6, 16, 17, 21, 22, 29]
+         Path: 7 cells → [6, 3, 16, 21, 17, 22, 29]
+         ✅ Assignment and Path are consistent
+      Robot 2:
+         Assignment: 12 cells → [0, 2, 4, 10, 14, 15, 23, 26, 30, 32, 33, 34]
+         Path: 12 cells → [4, 2, 30, 34, 33, 0, 23, 26, 14, 32, 10, 15]
+         ✅ Assignment and Path are consistent
+
+   Solution 2 (Score: 2406.683):
+      Total Path Cells: 30/30
+      Robot 0:
+         Assignment: 6 cells → [14, 15, 21, 24, 32, 33]
+         Path: 6 cells → [24, 33, 14, 32, 15, 21]
+         ✅ Assignment and Path are consistent
+      Robot 1:
+         Assignment: 14 cells → [0, 2, 3, 5, 9, 10, 12, 18, 20, 22, 23, 29, 30, 35]
+         Path: 14 cells → [30, 18, 20, 9, 23, 10, 5, 3, 22, 35, 0, 2, 12, 29]
+         ✅ Assignment and Path are consistent
+      Robot 2:
+         Assignment: 10 cells → [4, 6, 8, 11, 16, 17, 26, 27, 28, 34]
+         Path: 10 cells → [16, 26, 27, 11, 17, 34, 8, 28, 6, 4]
+         ✅ Assignment and Path are consistent
+
+   Solution 3 (Score: 2103.300):
+      Total Path Cells: 30/30
+      Robot 0:
+         Assignment: 8 cells → [2, 5, 9, 20, 26, 29, 32, 35]
+         Path: 8 cells → [9, 2, 20, 5, 35, 26, 32, 29]
+         ✅ Assignment and Path are consistent
+      Robot 1:
+         Assignment: 11 cells → [3, 4, 8, 10, 11, 14, 15, 22, 28, 30, 34]
+         Path: 11 cells → [4, 14, 30, 10, 3, 34, 11, 22, 28, 8, 15]
+         ✅ Assignment and Path are consistent
+      Robot 2:
+         Assignment: 11 cells → [0, 6, 12, 16, 17, 18, 21, 23, 24, 27, 33]
+         Path: 11 cells → [24, 16, 0, 21, 27, 33, 17, 23, 12, 6, 18]
+         ✅ Assignment and Path are consistent
+
+   ... (showing first 3 of 50 solutions)
+
+   🧬 Creating new population:
+      • 5 solutions via Selection (Elitism) (10%)
+      • 40 solutions via Crossover (80%)
+      • 5 solutions via Mutation (10%)
+
+──────────────────────────────────────────────────────────────────────
+🔍 STEP 1: SELECTION (Elitism) - Copying 5 best solutions
+──────────────────────────────────────────────────────────────────────
+   Sorting population by score (best = lowest)...
+   Top 5 solutions will be copied directly to new generation
+
+   Selection 1/5 (Elitism):
+      • Rank: 1-th best solution
+      • Score: 1902.273
+      • Action: Copied directly to new population
+      • Details:
+         Total Path Cells: 30/30
+         Robot 0: Assignment=12 cells, Path=12 cells
+            Path: [28, 5, 35, 29, 32, 14, 15, 20, 21, 17, 11, 6]
+         Robot 1: Assignment=12 cells, Path=12 cells
+            Path: [4, 18, 22, 23, 26, 24, 12, 33, 34, 9, 2, 8]
+         Robot 2: Assignment=6 cells, Path=6 cells
+            Path: [27, 0, 30, 10, 16, 3]
+
+   Selection 2/5 (Elitism):
+      • Rank: 2-th best solution
+      • Score: 2103.300
+      • Action: Copied directly to new population
+      • Details:
+         Total Path Cells: 30/30
+         Robot 0: Assignment=8 cells, Path=8 cells
+            Path: [9, 2, 20, 5, 35, 26, 32, 29]
+         Robot 1: Assignment=11 cells, Path=11 cells
+            Path: [4, 14, 30, 10, 3, 34, 11, 22, 28, 8, 15]
+         Robot 2: Assignment=11 cells, Path=11 cells
+            Path: [24, 16, 0, 21, 27, 33, 17, 23, 12, 6, 18]
+
+   Selection 3/5 (Elitism):
+      • Rank: 3-th best solution
+      • Score: 2203.793
+      • Action: Copied directly to new population
+      • Details:
+         Total Path Cells: 30/30
+         Robot 0: Assignment=10 cells, Path=10 cells
+            Path: [2, 4, 17, 28, 5, 22, 32, 33, 29, 35]
+         Robot 1: Assignment=8 cells, Path=8 cells
+            Path: [10, 26, 20, 18, 6, 11, 8, 16]
+         Robot 2: Assignment=12 cells, Path=12 cells
+            Path: [14, 30, 23, 27, 21, 3, 0, 12, 15, 9, 24, 34]
+
+   Selection 4/5 (Elitism):
+      • Rank: 4-th best solution
+      • Score: 2204.497
+      • Action: Copied directly to new population
+      • Details:
+         Total Path Cells: 30/30
+         Robot 0: Assignment=8 cells, Path=8 cells
+            Path: [0, 30, 4, 3, 22, 15, 29, 20]
+         Robot 1: Assignment=10 cells, Path=10 cells
+            Path: [21, 17, 12, 6, 2, 28, 34, 8, 9, 32]
+         Robot 2: Assignment=12 cells, Path=12 cells
+            Path: [23, 35, 24, 10, 18, 14, 16, 26, 27, 11, 33, 5]
+
+   Selection 5/5 (Elitism):
+      • Rank: 5-th best solution
+      • Score: 2206.650
+      • Action: Copied directly to new population
+      • Details:
+         Total Path Cells: 30/30
+         Robot 0: Assignment=15 cells, Path=15 cells
+            Path: [24, 20, 15, 3, 18, 28, 2, 33, 4, 21, 22, 23, 8, 9, 29]
+         Robot 1: Assignment=8 cells, Path=8 cells
+            Path: [32, 14, 26, 0, 6, 17, 34, 11]
+         Robot 2: Assignment=7 cells, Path=7 cells
+            Path: [30, 27, 35, 10, 16, 5, 12]
+
+──────────────────────────────────────────────────────────────────────
+🔍 STEP 2: CROSSOVER - Creating 40 offspring
+──────────────────────────────────────────────────────────────────────
+
+   Crossover 1/40:
+      Parent Selection (Tournament):
+         Parent 1: Score = 2308.179
+            Robot 0: Assignment=9 cells, Path=9 cells
+            Robot 1: Assignment=6 cells, Path=6 cells
+            Robot 2: Assignment=15 cells, Path=15 cells
+         Parent 2: Score = 2308.179
+            Robot 0: Assignment=9 cells, Path=9 cells
+            Robot 1: Assignment=6 cells, Path=6 cells
+            Robot 2: Assignment=15 cells, Path=15 cells
+
+======================================================================
+🔀 DAVIS' ORDER CROSSOVER (OX1) - DETAILED STEPS
+======================================================================
+Random selection: 1 → PATH Crossover
+
+📋 PARENT 1 (S1):
+   Score: 2308.179
+   Coverage: 30
+   Balance: 16.357
+   Assignment matrix (showing first 10 cells):
+      Cell 0: Assigned to robots [0]
+      Cell 1: Assigned to robots []
+      Cell 2: Assigned to robots [0]
+      Cell 3: Assigned to robots [2]
+      Cell 4: Assigned to robots [2]
+      Cell 5: Assigned to robots [0]
+      Cell 6: Assigned to robots [2]
+      Cell 7: Assigned to robots []
+      Cell 8: Assigned to robots [2]
+      Cell 9: Assigned to robots [2]
+   Paths:
+      Robot 0: 9 cells → [14, 29, 2, 10, 20, 21, 30, 0, 5]
+      Robot 1: 6 cells → [24, 15, 17, 28, 27, 32]
+      Robot 2: 15 cells → [33, 23, 22, 11, 16, 4, 35, 26, 6, 12, 9, 34, 3, 18, 8]
+
+📋 PARENT 2 (S2):
+   Score: 2308.179
+   Coverage: 30
+   Balance: 16.357
+   Assignment matrix (showing first 10 cells):
+      Cell 0: Assigned to robots [0]
+      Cell 1: Assigned to robots []
+      Cell 2: Assigned to robots [0]
+      Cell 3: Assigned to robots [2]
+      Cell 4: Assigned to robots [2]
+      Cell 5: Assigned to robots [0]
+      Cell 6: Assigned to robots [2]
+      Cell 7: Assigned to robots []
+      Cell 8: Assigned to robots [2]
+      Cell 9: Assigned to robots [2]
+   Paths:
+      Robot 0: 9 cells → [14, 29, 2, 10, 20, 21, 30, 0, 5]
+      Robot 1: 6 cells → [24, 15, 17, 28, 27, 32]
+      Robot 2: 15 cells → [33, 23, 22, 11, 16, 4, 35, 26, 6, 12, 9, 34, 3, 18, 8]
+
+──────────────────────────────────────────────────────────────────────
+🔀 PATH CROSSOVER (OX1)
+──────────────────────────────────────────────────────────────────────
+For each robot r, select two points [p1, p2] in P(1)_r
+Child inherits segment P(1)_r[p1:p2], then fills with unused cells from P(2)_r
+
+   Robot 0:
+      Parent 1 path (P(1)_0): 9 cells → [14, 29, 2, 10, 20, 21, 30, 0, 5]
+      Parent 2 path (P(2)_0): 9 cells → [14, 29, 2, 10, 20, 21, 30, 0, 5]
+      Selected points: p1=7, p2=8
+      Segment from P(1): [0]
+      Cells from P(2) (in order): [5, 14, 29, 2, 10, 20, 21, 30]
+      Child path: 9 cells → [0, 5, 14, 29, 2, 10, 20, 21, 30]
+      (Length preserved from Parent 1: 9 = 9)
+
+   Robot 1:
+      Parent 1 path (P(1)_1): 6 cells → [24, 15, 17, 28, 27, 32]
+      Parent 2 path (P(2)_1): 6 cells → [24, 15, 17, 28, 27, 32]
+      Selected points: p1=0, p2=5
+      Segment from P(1): [24, 15, 17, 28, 27]
+      Cells from P(2) (in order): [32]
+      Child path: 6 cells → [24, 15, 17, 28, 27, 32]
+      (Length preserved from Parent 1: 6 = 6)
+
+   Robot 2:
+      Parent 1 path (P(1)_2): 15 cells → [33, 23, 22, 11, 16, 4, 35, 26, 6, 12, 9, 34, 3, 18, 8]
+      Parent 2 path (P(2)_2): 15 cells → [33, 23, 22, 11, 16, 4, 35, 26, 6, 12, 9, 34, 3, 18, 8]
+      Selected points: p1=5, p2=7
+      Segment from P(1): [4, 35]
+      Cells from P(2) (in order): [26, 6, 12, 9, 34, 3, 18, 8, 33, 23, 22, 11, 16]
+      Child path: 15 cells → [4, 35, 26, 6, 12, 9, 34, 3, 18, 8, 33, 23, 22, 11, 16]
+      (Length preserved from Parent 1: 15 = 15)
+
+──────────────────────────────────────────────────────────────────────
+✅ CHILD CREATED
+──────────────────────────────────────────────────────────────────────
+   Child Score: 2308.778
+   Child Coverage: 30
+   Child Balance: 17.556
+   Child Assignment (showing first 10 cells):
+      Cell 0: Assigned to robots [0]
+      Cell 1: Assigned to robots []
+      Cell 2: Assigned to robots [0]
+      Cell 3: Assigned to robots [2]
+      Cell 4: Assigned to robots [2]
+      Cell 5: Assigned to robots [0]
+      Cell 6: Assigned to robots [2]
+      Cell 7: Assigned to robots []
+      Cell 8: Assigned to robots [2]
+      Cell 9: Assigned to robots [2]
+   Child Paths:
+      Robot 0: 9 cells → [0, 5, 14, 29, 2, 10, 20, 21, 30]
+      Robot 1: 6 cells → [24, 15, 17, 28, 27, 32]
+      Robot 2: 15 cells → [4, 35, 26, 6, 12, 9, 34, 3, 18, 8, 33, 23, 22, 11, 16]
+
+   Comparison:
+      Parent 1 Score: 2308.179
+      Parent 2 Score: 2308.179
+      Child Score:    2308.778
+======================================================================
+
+      Crossover Type: PATH (Random: 1)
+         Method: OX1 with two crossover points on robot paths
+      Child Created:
+         Score: 2308.778
+         Total Path Cells: 30/30
+         Robot 0: Assignment=9 cells, Path=9 cells
+            Path: [0, 5, 14, 29, 2, 10, 20, 21, 30]
+         Robot 1: Assignment=6 cells, Path=6 cells
+            Path: [24, 15, 17, 28, 27, 32]
+         Robot 2: Assignment=15 cells, Path=15 cells
+            Path: [4, 35, 26, 6, 12, 9, 34, 3, 18, 8, 33, 23, 22, 11, 16]
+      ✅ Child added to new population
+
+   Crossover 2/40:
+      Parent Selection (Tournament):
+         Parent 1: Score = 2407.450
+            Robot 0: Assignment=4 cells, Path=4 cells
+            Robot 1: Assignment=12 cells, Path=12 cells
+            Robot 2: Assignment=14 cells, Path=14 cells
+         Parent 2: Score = 2406.683
+            Robot 0: Assignment=6 cells, Path=6 cells
+            Robot 1: Assignment=14 cells, Path=14 cells
+            Robot 2: Assignment=10 cells, Path=10 cells
+
+======================================================================
+🔀 DAVIS' ORDER CROSSOVER (OX1) - DETAILED STEPS
+======================================================================
+Random selection: 0 → ASSIGNMENT Crossover
+
+📋 PARENT 1 (S1):
+   Score: 2407.450
+   Coverage: 30
+   Balance: 14.900
+   Assignment matrix (showing first 10 cells):
+      Cell 0: Assigned to robots [2]
+      Cell 1: Assigned to robots []
+      Cell 2: Assigned to robots [2]
+      Cell 3: Assigned to robots [0]
+      Cell 4: Assigned to robots [2]
+      Cell 5: Assigned to robots [2]
+      Cell 6: Assigned to robots [2]
+      Cell 7: Assigned to robots []
+      Cell 8: Assigned to robots [1]
+      Cell 9: Assigned to robots [2]
+   Paths:
+      Robot 0: 4 cells → [30, 3, 22, 27]
+      Robot 1: 12 cells → [23, 15, 12, 17, 26, 29, 24, 18, 34, 8, 33, 10]
+      Robot 2: 14 cells → [11, 16, 9, 4, 5, 21, 28, 2, 35, 14, 32, 20, 6, 0]
+
+📋 PARENT 2 (S2):
+   Score: 2406.683
+   Coverage: 30
+   Balance: 13.367
+   Assignment matrix (showing first 10 cells):
+      Cell 0: Assigned to robots [1]
+      Cell 1: Assigned to robots []
+      Cell 2: Assigned to robots [1]
+      Cell 3: Assigned to robots [1]
+      Cell 4: Assigned to robots [2]
+      Cell 5: Assigned to robots [1]
+      Cell 6: Assigned to robots [2]
+      Cell 7: Assigned to robots []
+      Cell 8: Assigned to robots [2]
+      Cell 9: Assigned to robots [1]
+   Paths:
+      Robot 0: 6 cells → [24, 33, 14, 32, 15, 21]
+      Robot 1: 14 cells → [30, 18, 20, 9, 23, 10, 5, 3, 22, 35, 0, 2, 12, 29]
+      Robot 2: 10 cells → [16, 26, 27, 11, 17, 34, 8, 28, 6, 4]
+
+──────────────────────────────────────────────────────────────────────
+🔀 ASSIGNMENT CROSSOVER (OX1)
+──────────────────────────────────────────────────────────────────────
+Step 1: Select two crossover points [p1, p2] on assignment matrix
+   Selected points: p1=14, p2=32
+   Segment [14:32] inherited from Parent 1
+   Remaining cells from Parent 2 in order (wrapping)
+
+   Child Assignment (showing first 10 cells):
+      Cell 0: [1] (from P2, P1=[2], P2=[1])
+      Cell 1: [] (from P2, P1=[], P2=[])
+      Cell 2: [1] (from P2, P1=[2], P2=[1])
+      Cell 3: [1] (from P2, P1=[0], P2=[1])
+      Cell 4: [2] (from P2, P1=[2], P2=[2])
+      Cell 5: [1] (from P2, P1=[2], P2=[1])
+      Cell 6: [2] (from P2, P1=[2], P2=[2])
+      Cell 7: [] (from P2, P1=[], P2=[])
+      Cell 8: [2] (from P2, P1=[1], P2=[2])
+      Cell 9: [1] (from P2, P1=[2], P2=[1])
+
+Step 2: Reconstruct paths to match new assignment
+   Robot 0:
+      Assigned cells: 5 → [22, 27, 30, 32, 33]
+      Path reconstructed: 5 cells → [30, 22, 27, 32, 33]
+      (Parent 1 path: [30, 3, 22, 27])
+   Robot 1:
+      Assigned cells: 15 → [0, 2, 3, 5, 9, 10, 12, 15, 17, 18, 23, 24, 26, 29, 35]
+      Path reconstructed: 15 cells → [23, 15, 12, 17, 26, 29, 24, 18, 10, 0, 2, 3, 5, 9, 35]
+      (Parent 1 path: [23, 15, 12, 17, 26, 29, 24, 18, 34, 8, 33, 10])
+   Robot 2:
+      Assigned cells: 10 → [4, 6, 8, 11, 14, 16, 20, 21, 28, 34]
+      Path reconstructed: 10 cells → [11, 16, 4, 21, 28, 14, 20, 6, 8, 34]
+      (Parent 1 path: [11, 16, 9, 4, 5, 21, 28, 2, 35, 14, 32, 20, 6, 0])
+
+──────────────────────────────────────────────────────────────────────
+✅ CHILD CREATED
+──────────────────────────────────────────────────────────────────────
+   Child Score: 2308.003
+   Child Coverage: 30
+   Child Balance: 16.007
+   Child Assignment (showing first 10 cells):
+      Cell 0: Assigned to robots [1]
+      Cell 1: Assigned to robots []
+      Cell 2: Assigned to robots [1]
+      Cell 3: Assigned to robots [1]
+      Cell 4: Assigned to robots [2]
+      Cell 5: Assigned to robots [1]
+      Cell 6: Assigned to robots [2]
+      Cell 7: Assigned to robots []
+      Cell 8: Assigned to robots [2]
+      Cell 9: Assigned to robots [1]
+   Child Paths:
+      Robot 0: 5 cells → [30, 22, 27, 32, 33]
+      Robot 1: 15 cells → [23, 15, 12, 17, 26, 29, 24, 18, 10, 0, 2, 3, 5, 9, 35]
+      Robot 2: 10 cells → [11, 16, 4, 21, 28, 14, 20, 6, 8, 34]
+
+   Comparison:
+      Parent 1 Score: 2407.450
+      Parent 2 Score: 2406.683
+      Child Score:    2308.003
+======================================================================
+
+      Crossover Type: ASSIGNMENT (Random: 0)
+         Method: OX1 with two crossover points on assignment matrix
+      Child Created:
+         Score: 2308.003
+         Total Path Cells: 30/30
+         Robot 0: Assignment=5 cells, Path=5 cells
+            Path: [30, 22, 27, 32, 33]
+         Robot 1: Assignment=15 cells, Path=15 cells
+            Path: [23, 15, 12, 17, 26, 29, 24, 18, 10, 0, 2, 3, 5, 9, 35]
+         Robot 2: Assignment=10 cells, Path=10 cells
+            Path: [11, 16, 4, 21, 28, 14, 20, 6, 8, 34]
+      ✅ Child added to new population
+
+   Crossover 3/40:
+      Parent Selection (Tournament):
+         Parent 1: Score = 2507.983
+            Robot 0: Assignment=16 cells, Path=16 cells
+            Robot 1: Assignment=8 cells, Path=8 cells
+            Robot 2: Assignment=6 cells, Path=6 cells
+         Parent 2: Score = 2203.793
+            Robot 0: Assignment=10 cells, Path=10 cells
+            Robot 1: Assignment=8 cells, Path=8 cells
+            Robot 2: Assignment=12 cells, Path=12 cells
+      Crossover Type: PATH (Random: 1)
+         Method: OX1 with two crossover points on robot paths
+      Child Created:
+         Score: 3605.720
+         Total Path Cells: 48/30
+         Robot 0: Assignment=21 cells, Path=21 cells
+            Path: [34, 9, 14, 2, 4, 17, 28, 5, 22, 32, 33, 29, 35, 16, 21, 8, 0, 18, 24, 15, 3]
+         Robot 1: Assignment=12 cells, Path=12 cells
+            Path: [4, 11, 8, 16, 10, 26, 20, 18, 6, 12, 17, 33]
+         Robot 2: Assignment=15 cells, Path=15 cells
+            Path: [22, 23, 27, 21, 3, 0, 12, 15, 9, 24, 34, 14, 30, 26, 28]
+      ✅ Child added to new population
+
+   ... (showing first 3 of 40 crossovers in detail)
+
+──────────────────────────────────────────────────────────────────────
+🔍 STEP 3: MUTATION - Mutating 5 worst solutions
+──────────────────────────────────────────────────────────────────────
+   Sorting population by worst score (worst = highest score)...
+   Will mutate the 5 worst solutions
+
+   Mutation 1/5:
+      Selected Solution: 1-th worst (Rank: 1, Score: 2702.160)
+      Before Mutation:
+         Total Path Cells: 30/30
+         Robot 0: Assignment=13 cells, Path=13 cells
+            Path: [22, 6, 17, 10, 3, 20, 15, 8, 18, 32, 12, 27, 11]
+         Robot 1: Assignment=7 cells, Path=7 cells
+            Path: [14, 28, 0, 35, 2, 26, 34]
+         Robot 2: Assignment=10 cells, Path=10 cells
+            Path: [5, 33, 23, 21, 29, 24, 9, 30, 4, 16]
+      Mutation Process:
+         Step 1: Random robot selected: Robot 1
+         Step 2: Check if Robot 1 path length > 2: 7 > 2 = True
+         Step 3: Mutation SUCCESS - Swapped two positions in Robot 1's path
+      After Mutation:
+         Total Path Cells: 30/30
+         Robot 0: Assignment=13 cells, Path=13 cells
+            Path: [22, 6, 17, 10, 3, 20, 15, 8, 18, 32, 12, 27, 11]
+         Robot 1 (MUTATED): Assignment=7 cells, Path=7 cells
+            Path Before: [14, 28, 0, 35, 2, 26, 34]
+            Path After:  [28, 14, 0, 35, 2, 26, 34]
+         Robot 2: Assignment=10 cells, Path=10 cells
+            Path: [5, 33, 23, 21, 29, 24, 9, 30, 4, 16]
+      Mutated Solution Score: 2703.091
+      ✅ Mutated solution added to new population
+
+   Mutation 2/5:
+      Selected Solution: 2-th worst (Rank: 2, Score: 2607.771)
+      Before Mutation:
+         Total Path Cells: 30/30
+         Robot 0: Assignment=8 cells, Path=8 cells
+            Path: [8, 15, 4, 22, 28, 32, 24, 17]
+         Robot 1: Assignment=12 cells, Path=12 cells
+            Path: [10, 29, 26, 6, 27, 18, 33, 0, 16, 30, 9, 34]
+         Robot 2: Assignment=10 cells, Path=10 cells
+            Path: [2, 12, 23, 5, 21, 11, 3, 14, 35, 20]
+      Mutation Process:
+         Step 1: Random robot selected: Robot 0
+         Step 2: Check if Robot 0 path length > 2: 8 > 2 = True
+         Step 3: Mutation SUCCESS - Swapped two positions in Robot 0's path
+      After Mutation:
+         Total Path Cells: 30/30
+         Robot 0 (MUTATED): Assignment=8 cells, Path=8 cells
+            Path Before: [8, 15, 4, 22, 28, 32, 24, 17]
+            Path After:  [8, 15, 4, 22, 28, 24, 32, 17]
+         Robot 1: Assignment=12 cells, Path=12 cells
+            Path: [10, 29, 26, 6, 27, 18, 33, 0, 16, 30, 9, 34]
+         Robot 2: Assignment=10 cells, Path=10 cells
+            Path: [2, 12, 23, 5, 21, 11, 3, 14, 35, 20]
+      Mutated Solution Score: 2607.771
+      ✅ Mutated solution added to new population
+
+   Mutation 3/5:
+      Selected Solution: 3-th worst (Rank: 3, Score: 2606.980)
+      Before Mutation:
+         Total Path Cells: 30/30
+         Robot 0: Assignment=11 cells, Path=11 cells
+            Path: [27, 24, 11, 8, 28, 35, 12, 5, 9, 20, 18]
+         Robot 1: Assignment=7 cells, Path=7 cells
+            Path: [6, 3, 16, 21, 17, 22, 29]
+         Robot 2: Assignment=12 cells, Path=12 cells
+            Path: [4, 2, 30, 34, 33, 0, 23, 26, 14, 32, 10, 15]
+      Mutation Process:
+         Step 1: Random robot selected: Robot 1
+         Step 2: Check if Robot 1 path length > 2: 7 > 2 = True
+         Step 3: Mutation SUCCESS - Swapped two positions in Robot 1's path
+      After Mutation:
+         Total Path Cells: 30/30
+         Robot 0: Assignment=11 cells, Path=11 cells
+            Path: [27, 24, 11, 8, 28, 35, 12, 5, 9, 20, 18]
+         Robot 1 (MUTATED): Assignment=7 cells, Path=7 cells
+            Path Before: [6, 3, 16, 21, 17, 22, 29]
+            Path After:  [6, 3, 21, 16, 17, 22, 29]
+         Robot 2: Assignment=12 cells, Path=12 cells
+            Path: [4, 2, 30, 34, 33, 0, 23, 26, 14, 32, 10, 15]
+      Mutated Solution Score: 2507.450
+      ✅ Mutated solution added to new population
+
+   Mutation 4/5:
+      Selected Solution: 4-th worst (Rank: 4, Score: 2606.956)
+      Before Mutation:
+         Total Path Cells: 30/30
+         Robot 0: Assignment=10 cells, Path=10 cells
+            Path: [22, 5, 32, 15, 27, 8, 9, 18, 11, 3]
+         Robot 1: Assignment=7 cells, Path=7 cells
+            Path: [28, 20, 33, 12, 14, 26, 30]
+         Robot 2: Assignment=13 cells, Path=13 cells
+            Path: [10, 23, 0, 2, 34, 16, 4, 6, 29, 21, 17, 35, 24]
+      Mutation Process:
+         Step 1: Random robot selected: Robot 1
+         Step 2: Check if Robot 1 path length > 2: 7 > 2 = True
+         Step 3: Mutation SUCCESS - Swapped two positions in Robot 1's path
+      After Mutation:
+         Total Path Cells: 30/30
+         Robot 0: Assignment=10 cells, Path=10 cells
+            Path: [22, 5, 32, 15, 27, 8, 9, 18, 11, 3]
+         Robot 1 (MUTATED): Assignment=7 cells, Path=7 cells
+            Path Before: [28, 20, 33, 12, 14, 26, 30]
+            Path After:  [28, 26, 33, 12, 14, 20, 30]
+         Robot 2: Assignment=13 cells, Path=13 cells
+            Path: [10, 23, 0, 2, 34, 16, 4, 6, 29, 21, 17, 35, 24]
+      Mutated Solution Score: 2507.382
+      ✅ Mutated solution added to new population
+
+   Mutation 5/5:
+      Selected Solution: 5-th worst (Rank: 5, Score: 2605.265)
+      Before Mutation:
+         Total Path Cells: 30/30
+         Robot 0: Assignment=8 cells, Path=8 cells
+            Path: [23, 27, 15, 4, 14, 33, 21, 10]
+         Robot 1: Assignment=10 cells, Path=10 cells
+            Path: [30, 6, 24, 2, 29, 3, 11, 8, 16, 35]
+         Robot 2: Assignment=12 cells, Path=12 cells
+            Path: [34, 32, 9, 28, 22, 0, 5, 12, 26, 17, 20, 18]
+      Mutation Process:
+         Step 1: Random robot selected: Robot 0
+         Step 2: Check if Robot 0 path length > 2: 8 > 2 = True
+         Step 3: Mutation SUCCESS - Swapped two positions in Robot 0's path
+      After Mutation:
+         Total Path Cells: 30/30
+         Robot 0 (MUTATED): Assignment=8 cells, Path=8 cells
+            Path Before: [23, 27, 15, 4, 14, 33, 21, 10]
+            Path After:  [23, 4, 15, 27, 14, 33, 21, 10]
+         Robot 1: Assignment=10 cells, Path=10 cells
+            Path: [30, 6, 24, 2, 29, 3, 11, 8, 16, 35]
+         Robot 2: Assignment=12 cells, Path=12 cells
+            Path: [34, 32, 9, 28, 22, 0, 5, 12, 26, 17, 20, 18]
+      Mutated Solution Score: 2605.265
+      ✅ Mutated solution added to new population
+   📊 Generation 0 Operations:
+      • Selections:  5/5 (10% - Elitism)
+      • Crossovers:  40/40 (80%)
+      • Mutations:   5/5 (10%)
+
+──────────────────────────────────────────────────────────────────────
+🔍 STEP 4: FINAL NEW POPULATION (Generation 1)
+──────────────────────────────────────────────────────────────────────
+   New Population Size: 50
+   Composition:
+      • 5 solutions from Selection (Elitism)
+      • 40 solutions from Crossover
+      • 5 solutions from Mutation
+   Showing first 5 solutions that will be passed to Generation 1 (showing all would be too long):
+
+   New Solution 1 (Score: 1902.273):
+      Total Path Cells: 30/30
+      Source: Selection (Elitism) - Rank 1 from Generation 0
+      Robot 0: Assignment=12 cells, Path=12 cells
+         Path: [28, 5, 35, 29, 32, 14, 15, 20, 21, 17, 11, 6]
+         ✅ Assignment and Path are consistent
+      Robot 1: Assignment=12 cells, Path=12 cells
+         Path: [4, 18, 22, 23, 26, 24, 12, 33, 34, 9, 2, 8]
+         ✅ Assignment and Path are consistent
+      Robot 2: Assignment=6 cells, Path=6 cells
+         Path: [27, 0, 30, 10, 16, 3]
+         ✅ Assignment and Path are consistent
+
+   New Solution 2 (Score: 2103.300):
+      Total Path Cells: 30/30
+      Source: Selection (Elitism) - Rank 2 from Generation 0
+      Robot 0: Assignment=8 cells, Path=8 cells
+         Path: [9, 2, 20, 5, 35, 26, 32, 29]
+         ✅ Assignment and Path are consistent
+      Robot 1: Assignment=11 cells, Path=11 cells
+         Path: [4, 14, 30, 10, 3, 34, 11, 22, 28, 8, 15]
+         ✅ Assignment and Path are consistent
+      Robot 2: Assignment=11 cells, Path=11 cells
+         Path: [24, 16, 0, 21, 27, 33, 17, 23, 12, 6, 18]
+         ✅ Assignment and Path are consistent
+
+   New Solution 3 (Score: 2203.793):
+      Total Path Cells: 30/30
+      Source: Selection (Elitism) - Rank 3 from Generation 0
+      Robot 0: Assignment=10 cells, Path=10 cells
+         Path: [2, 4, 17, 28, 5, 22, 32, 33, 29, 35]
+         ✅ Assignment and Path are consistent
+      Robot 1: Assignment=8 cells, Path=8 cells
+         Path: [10, 26, 20, 18, 6, 11, 8, 16]
+         ✅ Assignment and Path are consistent
+      Robot 2: Assignment=12 cells, Path=12 cells
+         Path: [14, 30, 23, 27, 21, 3, 0, 12, 15, 9, 24, 34]
+         ✅ Assignment and Path are consistent
+
+   New Solution 4 (Score: 2204.497):
+      Total Path Cells: 30/30
+      Source: Selection (Elitism) - Rank 4 from Generation 0
+      Robot 0: Assignment=8 cells, Path=8 cells
+         Path: [0, 30, 4, 3, 22, 15, 29, 20]
+         ✅ Assignment and Path are consistent
+      Robot 1: Assignment=10 cells, Path=10 cells
+         Path: [21, 17, 12, 6, 2, 28, 34, 8, 9, 32]
+         ✅ Assignment and Path are consistent
+      Robot 2: Assignment=12 cells, Path=12 cells
+         Path: [23, 35, 24, 10, 18, 14, 16, 26, 27, 11, 33, 5]
+         ✅ Assignment and Path are consistent
+
+   New Solution 5 (Score: 2206.650):
+      Total Path Cells: 30/30
+      Source: Selection (Elitism) - Rank 5 from Generation 0
+      Robot 0: Assignment=15 cells, Path=15 cells
+         Path: [24, 20, 15, 3, 18, 28, 2, 33, 4, 21, 22, 23, 8, 9, 29]
+         ✅ Assignment and Path are consistent
+      Robot 1: Assignment=8 cells, Path=8 cells
+         Path: [32, 14, 26, 0, 6, 17, 34, 11]
+         ✅ Assignment and Path are consistent
+      Robot 2: Assignment=7 cells, Path=7 cells
+         Path: [30, 27, 35, 10, 16, 5, 12]
+         ✅ Assignment and Path are consistent
+
+   ... (showing first 5 of 50 solutions)
+
+   📊 Summary Statistics for New Population:
+      • Score Range: 1804.637 to 4906.884
+      • Average Score: 2724.775
+      • Path Cells Range: 30 to 55 (should be ~30)
+      • Average Path Cells: 34.9
+
+======================================================================
+✅ GENERATION 0 COMPLETE - New population ready for Generation 1
+======================================================================
+
+   🎉 NEW BEST SOLUTION FOUND!
+      • Old Best: 1902.273
+      • New Best: 1804.637
+      • Improvement: 97.636
+
+   🎉 Generation 0 Summary:
+      • Best Score:     1804.637
+      • Current Best:   1804.637
+      • Average:        2724.775
+      • Worst:          4906.884
+      • Coverage:       30/30 cells
+      • Balance:        9.274
+
+──────────────────────────────────────────────────────────────────────
+🔄 GENERATION 1
+──────────────────────────────────────────────────────────────────────
+
+   🧬 Creating new population:
+      • 5 solutions via Selection (Elitism) (10%)
+      • 40 solutions via Crossover (80%)
+      • 5 solutions via Mutation (10%)
+      Selection 1 (Elitism): Copied 1-th best solution (score: 1804.637)
+      Selection 2 (Elitism): Copied 2-th best solution (score: 1901.027)
+      Crossover 1:
+         • Parent 1 (score: 1902.273)
+         • Parent 2 (score: 2202.718)
+         • Random number: 1 → Crossover PATH using OX1 (two points)
+         • 📊 Child score: 3502.055
+      Crossover 2:
+         • Parent 1 (score: 2002.867)
+         • Parent 2 (score: 2306.096)
+         • Random number: 0 → Crossover ASSIGNMENT using OX1 (two points)
+         • 📊 Child score: 2005.312
+      Mutation 1:
+         • Selected: 1-th worst solution (score: 4906.884)
+         • Random robot selected: Robot 0
+         • Robot 0 path before: [26, 21, 28, 5, 23, 33, 4, 20, 15, 32, 2, 14, 10, 11, 30, 6]
+         • Robot 0 path after:  [26, 21, 28, 5, 23, 33, 4, 20, 15, 10, 2, 14, 32, 11, 30, 6]
+         • 🧪 Mutation applied (swapped two positions in Robot 0's path)!
+         • 📊 Mutated score: 5006.416
+      Mutation 2:
+         • Selected: 2-th worst solution (score: 4703.520)
+         • Random robot selected: Robot 1
+         • Robot 1 path before: [11, 18, 33, 24, 9, 12, 28, 16, 14, 5, 22, 2, 6, 26, 29, 32, 4, 35]
+         • Robot 1 path after:  [11, 18, 33, 24, 9, 12, 28, 32, 14, 5, 22, 2, 6, 26, 29, 16, 4, 35]
+         • 🧪 Mutation applied (swapped two positions in Robot 1's path)!
+         • 📊 Mutated score: 4702.858
+   📊 Generation 1 Operations:
+      • Selections:  5/5 (10% - Elitism)
+      • Crossovers:  40/40 (80%)
+      • Mutations:   5/5 (10%)
+
+──────────────────────────────────────────────────────────────────────
+🔄 GENERATION 2
+──────────────────────────────────────────────────────────────────────
+
+   🧬 Creating new population:
+      • 5 solutions via Selection (Elitism) (10%)
+      • 40 solutions via Crossover (80%)
+      • 5 solutions via Mutation (10%)
+   📊 Generation 2 Operations:
+      • Selections:  5/5 (10% - Elitism)
+      • Crossovers:  40/40 (80%)
+      • Mutations:   5/5 (10%)
+
+──────────────────────────────────────────────────────────────────────
+🔄 GENERATION 10
+──────────────────────────────────────────────────────────────────────
+
+   📊 Generation 10 Summary:
+      • Best Score:     1701.080
+      • Current Best:   1701.080
+      • Average:        2516.497
+      • Worst:          5901.434
+      • Coverage:       30/30 cells
+      • Balance:        2.160
+
+──────────────────────────────────────────────────────────────────────
+🔄 GENERATION 20
+──────────────────────────────────────────────────────────────────────
+
+   📊 Generation 20 Summary:
+      • Best Score:     1700.236
+      • Current Best:   1700.236
+      • Average:        2187.439
+      • Worst:          5804.552
+      • Coverage:       30/30 cells
+      • Balance:        0.471
+
+──────────────────────────────────────────────────────────────────────
+🔄 GENERATION 30
+──────────────────────────────────────────────────────────────────────
+
+   📊 Generation 30 Summary:
+      • Best Score:     1700.000
+      • Current Best:   1700.000
+      • Average:        2167.155
+      • Worst:          5801.780
+      • Coverage:       30/30 cells
+      • Balance:        0.000
+
+──────────────────────────────────────────────────────────────────────
+🔄 GENERATION 40
+──────────────────────────────────────────────────────────────────────
+
+   📊 Generation 40 Summary:
+      • Best Score:     1600.000
+      • Current Best:   1600.000
+      • Average:        2061.255
+      • Worst:          5803.742
+      • Coverage:       30/30 cells
+      • Balance:        0.000
+
+──────────────────────────────────────────────────────────────────────
+🔄 GENERATION 50
+──────────────────────────────────────────────────────────────────────
+
+   📊 Generation 50 Summary:
+      • Best Score:     1600.000
+      • Current Best:   1600.000
+      • Average:        2067.063
+      • Worst:          5901.871
+      • Coverage:       30/30 cells
+      • Balance:        0.000
+
+──────────────────────────────────────────────────────────────────────
+🔄 GENERATION 60
+──────────────────────────────────────────────────────────────────────
+   🎉 NEW BEST SOLUTION FOUND!
+      • Old Best: 1500.624
+      • New Best: 1500.471
+      • Improvement: 0.152
+
+   🎉 Generation 60 Summary:
+      • Best Score:     1500.471
+      • Current Best:   1500.471
+      • Average:        2005.372
+      • Worst:          6003.082
+      • Coverage:       30/30 cells
+      • Balance:        0.943
+
+──────────────────────────────────────────────────────────────────────
+🔄 GENERATION 70
+──────────────────────────────────────────────────────────────────────
+
+   📊 Generation 70 Summary:
+      • Best Score:     1500.236
+      • Current Best:   1500.236
+      • Average:        1985.345
+      • Worst:          5905.543
+      • Coverage:       30/30 cells
+      • Balance:        0.471
+
+──────────────────────────────────────────────────────────────────────
+🔄 GENERATION 80
+──────────────────────────────────────────────────────────────────────
+
+   📊 Generation 80 Summary:
+      • Best Score:     1500.236
+      • Current Best:   1500.236
+      • Average:        2013.331
+      • Worst:          5806.329
+      • Coverage:       30/30 cells
+      • Balance:        0.471
+
+──────────────────────────────────────────────────────────────────────
+🔄 GENERATION 90
+──────────────────────────────────────────────────────────────────────
+
+   📊 Generation 90 Summary:
+      • Best Score:     1301.312
+      • Current Best:   1301.312
+      • Average:        1877.772
+      • Worst:          6006.249
+      • Coverage:       30/30 cells
+      • Balance:        2.625
+
+   🎉 Generation 99 Summary:
+      • Best Score:     1300.850
+      • Current Best:   1300.850
+      • Average:        1845.788
+      • Worst:          6206.182
+      • Coverage:       30/30 cells
+      • Balance:        1.700
+
+======================================================================
+✅ GENETIC ALGORITHM COMPLETE!
+======================================================================
+📊 Final Statistics:
+   • Total Generations:      100
+   • Total Selections:        500 (10% per generation - Elitism)
+   • Total Crossovers:        4000 (80% per generation)
+   • Total Mutations:         500 (10% per generation)
+   • Best Score Achieved:     1300.850
+   • Final Coverage:         30/30 cells (100.0%)
+   • Final Balance:          1.700
+   • Constraint Violations:  13
+======================================================================
+
+
+================================================================================
+📊 GENERATING VISUALIZATIONS
+================================================================================
+✅ Convergence plot saved to results/figures/ga_convergence.png
+✅ Robot paths plot saved to results/figures/ga_best_solution.png
+✅ Coverage heatmap saved to results/figures/ga_coverage_heatmap.png
+✅ All visualizations saved to results/figures/
+
+⏱️  GA Runtime: 9.66 seconds (0.16 minutes)
+
+================================================================================
+📊 GENERATING VISUALIZATIONS
+================================================================================
+
+🔍 Visualization Debug Info:
+   • Paths type: <class 'dict'>
+   • Paths dict keys: [0, 1, 2]
+   • Paths dict lengths: [(0, 11), (1, 11), (2, 8)]
+   • Total path cells: 30
+   • Free cells: 30
+✅ Solution visualization saved to results/ga_only/ga_solution_case2.png
+✅ GA solution visualization saved
+✅ Convergence plot saved to results/ga_only/ga_convergence_case2.png
+✅ GA convergence plot saved
+
+================================================================================
+📊 GA RESULTS SUMMARY
+================================================================================
+Best Combined Score: 1300.8498
+Coverage: 30/30 cells
+Balance: 1.6997
+Coverage Efficiency: 1.00%
+Workload Balance Index: 0.3704
+
+✅ GA run completed!
+Results saved to: results/ga_only/
+➜  optimization_project git:(ms4) ✗ 

@@ -1,0 +1,132 @@
+PART 3 — Algorithm summary (Tutorial Style)
+
+✔ Ant starts at depot (start node).
+✔ At each step, ant chooses the next unvisited node:
+
+If random < z0 : choose best (max τ * η)
+Else: use probability roulette wheel
+
+
+✔ After choosing a node → apply local pheromone update.
+✔ When full tour is complete → compute total tour cost.
+✔ After all ants finish → global pheromone update using best ant tour.
+✔ Repeat for iterations → get final best tour T_min.
+
+
+2-local phermone update :
+Why add τ₀?
+
+Because ACS wants diversity:
+
+If τ becomes too small → edges become dead
+
+τ₀ keeps edges alive
+
+So ants don’t get “stuck” following the same early path.
+
+3-What is the difference between global and local pheromone?
+1. Local pheromone update
+
+Used during tour construction after each ant makes a move.
+
+Purpose:
+
+Avoid too much pheromone concentration early
+
+Encourage exploration
+
+Paper formula:
+
+𝜏
+𝑝
+𝑞
+=
+(
+1
+−
+𝜙
+)
+𝜏
+𝑝
+𝑞
++
+𝜙
+𝜏
+0
+τ
+pq
+	​
+
+=(1−ϕ)τ
+pq
+	​
+
++ϕτ
+0
+	​
+
+2. Global pheromone update
+
+Used after all ants finish their tours.
+
+Only the best ant deposits pheromone:
+
+𝜏
+𝑖
+𝑗
+←
+(
+1
+−
+𝜌
+)
+𝜏
+𝑖
+𝑗
++
+𝜌
+⋅
+1
+𝐿
+best
+τ
+ij
+	​
+
+←(1−ρ)τ
+ij
+	​
+
++ρ⋅
+L
+best
+	​
+
+1
+	​
+
+
+Purpose:
+
+Strengthen the globally good solutions
+
+Keep improving overall quality
+
+4- AntColonyOptimization class
+__init__() (lines 575-642)
+Initializes ACO parameters and data structures.
+Parameters (lines 575-595)
+num_ants: solutions per iteration
+initial_pheromone: starting pheromone level
+rho: evaporation rate
+alpha: pheromone weight
+beta: heuristic weight
+gamma: workload balance weight
+iterations: number of iterations
+seed: random seed
+Initialization (lines 611-642)
+Random seed (lines 611-612)
+Robot starts (lines 614-619)
+Pheromone matrix τ[r][i] (lines 621-626)
+Heuristic matrix η[r][i] (lines 628-636)
+Best solution tracking (lines 638-642)

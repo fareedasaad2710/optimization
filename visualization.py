@@ -11,6 +11,7 @@ This module provides visualization functions for:
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+import matplotlib.patches as mpatches
 import numpy as np
 from problem_formulation import *
 
@@ -94,147 +95,496 @@ def plot_grid_solution(solution, title="Multi-Robot Coverage Solution"):
     plt.tight_layout()
     return fig
 
-def plot_convergence_history(iteration_data, title="SA Convergence History"):
+
+def plot_convergence_history(convergence_history, title="Algorithm Convergence", save_path=None):
     """
-    Plot the convergence history of the SA algorithm
+    Plot convergence history showing best, average, and worst scores over generations
+    Supports both SA (with 'iteration' key) and GA (with 'generation' key) formats
     
     Args:
-        iteration_data: List of dictionaries with iteration, temperature, current_score, best_score
+        convergence_history: Dictionary with convergence data
         title: Plot title
+        save_path: Path to save figure (optional)
     """
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8))
+    fig, ax = plt.subplots(figsize=(12, 6))
     
-    iterations = [d['iteration'] for d in iteration_data]
-    temperatures = [d['temperature'] for d in iteration_data]
-    current_scores = [d['current_score'] for d in iteration_data]
-    best_scores = [d['best_score'] for d in iteration_data]
+    # Handle both SA and GA formats
+    if 'generation' in convergence_history:
+        iterations = convergence_history['generation']
+        xlabel = 'Generation'
+    elif 'iteration' in convergence_history:
+        iterations = convergence_history['iteration']
+        xlabel = 'Iteration'
+    else:
+        iterations = list(range(len(convergence_history.get('best_score', []))))
+        xlabel = 'Iteration'
     
-    # Plot temperature cooling
-    ax1.plot(iterations, temperatures, 'b-', linewidth=2, label='Temperature')
-    ax1.set_xlabel('Iteration')
-    ax1.set_ylabel('Temperature')
-    ax1.set_title('Temperature Cooling Schedule')
-    ax1.grid(True, alpha=0.3)
-    ax1.legend()
+    best_scores = convergence_history.get('best_score', [])
     
-    # Plot objective function values
-    ax2.plot(iterations, current_scores, 'r-', alpha=0.7, label='Current Solution')
-    ax2.plot(iterations, best_scores, 'g-', linewidth=2, label='Best Solution')
-    ax2.set_xlabel('Iteration')
-    ax2.set_ylabel('Objective Function Value')
-    ax2.set_title('Objective Function Convergence')
-    ax2.grid(True, alpha=0.3)
-    ax2.legend()
+    # Plot best score (always available)
+    ax.plot(iterations, best_scores, 'g-o', label='Best Score', linewidth=2, markersize=4)
     
-    plt.suptitle(title, fontsize=16, fontweight='bold')
+    # Plot average and worst if available (GA format)
+    if 'avg_score' in convergence_history:
+        avg_scores = convergence_history['avg_score']
+        ax.plot(iterations, avg_scores, 'b-s', label='Average Score', linewidth=2, markersize=4)
+    
+    if 'worst_score' in convergence_history:
+        worst_scores = convergence_history['worst_score']
+        ax.plot(iterations, worst_scores, 'r-^', label='Worst Score', linewidth=2, markersize=4)
+    
+    # Plot current score if available (SA format)
+    if 'current_score' in convergence_history:
+        current_scores = convergence_history['current_score']
+        ax.plot(iterations, current_scores, 'r-', alpha=0.5, label='Current Score', linewidth=1)
+    
+    ax.set_xlabel(xlabel, fontsize=12)
+    ax.set_ylabel('Combined Score (lower = better)', fontsize=12)
+    ax.set_title(title, fontsize=14, fontweight='bold')
+    ax.legend(loc='best', fontsize=10)
+    ax.grid(True, alpha=0.3)
+    
     plt.tight_layout()
-    return fig
+    
+    if save_path:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        print(f"✅ Convergence plot saved to {save_path}")
+    else:
+        plt.show()
+    
+    plt.close()
 
-def plot_objective_comparison(solutions, titles, title="Objective Function Comparison"):
+
+def plot_best_score_only(convergence_history, title="Best Score Convergence", save_path=None):
     """
-    Compare multiple solutions using bar plots
+    Plot only the best score over generations/iterations
     
     Args:
-        solutions: List of RobotCoverageSolution objects
-        titles: List of solution titles
+        convergence_history: Dictionary with convergence data
         title: Plot title
+        save_path: Path to save figure (optional)
     """
-    fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(15, 5))
+    fig, ax = plt.subplots(figsize=(10, 6))
     
-    coverage_scores = [sol.fitness['coverage_score'] for sol in solutions]
-    balance_scores = [sol.fitness['balance_score'] for sol in solutions]
-    combined_scores = [sol.combined_score for sol in solutions]
+    # Handle both SA and GA formats
+    if 'generation' in convergence_history:
+        iterations = convergence_history['generation']
+        xlabel = 'Generation'
+    elif 'iteration' in convergence_history:
+        iterations = convergence_history['iteration']
+        xlabel = 'Iteration'
+    else:
+        iterations = list(range(len(convergence_history.get('best_score', []))))
+        xlabel = 'Iteration'
     
-    # Coverage comparison
-    bars1 = ax1.bar(titles, coverage_scores, color='skyblue', alpha=0.7)
-    ax1.set_title('Coverage Score (Higher is Better)')
-    ax1.set_ylabel('Cells Covered')
-    ax1.tick_params(axis='x', rotation=45)
+    best_scores = convergence_history.get('best_score', [])
     
-    # Add value labels on bars
-    for bar, score in zip(bars1, coverage_scores):
-        ax1.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.1, 
-                f'{score}', ha='center', va='bottom')
+    # Plot best score only
+    ax.plot(iterations, best_scores, 'g-o', label='Best Score', linewidth=2.5, markersize=5, markevery=5)
     
-    # Balance comparison
-    bars2 = ax2.bar(titles, balance_scores, color='lightcoral', alpha=0.7)
-    ax2.set_title('Balance Score (Lower is Better)')
-    ax2.set_ylabel('Workload Variance')
-    ax2.tick_params(axis='x', rotation=45)
+    ax.set_xlabel(xlabel, fontsize=12)
+    ax.set_ylabel('Combined Score (lower = better)', fontsize=12)
+    ax.set_title(title, fontsize=14, fontweight='bold')
+    ax.legend(loc='best', fontsize=11)
+    ax.grid(True, alpha=0.3)
     
-    # Add value labels on bars
-    for bar, score in zip(bars2, balance_scores):
-        ax2.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.01, 
-                f'{score:.3f}', ha='center', va='bottom')
-    
-    # Combined score comparison
-    bars3 = ax3.bar(titles, combined_scores, color='lightgreen', alpha=0.7)
-    ax3.set_title('Combined Score (Lower is Better)')
-    ax3.set_ylabel('Combined Objective Value')
-    ax3.tick_params(axis='x', rotation=45)
-    
-    # Add value labels on bars
-    for bar, score in zip(bars3, combined_scores):
-        ax3.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.01, 
-                f'{score:.3f}', ha='center', va='bottom')
-    
-    plt.suptitle(title, fontsize=16, fontweight='bold')
     plt.tight_layout()
-    return fig
+    
+    if save_path:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        print(f"✅ Best score plot saved to {save_path}")
+    else:
+        plt.show()
+    
+    plt.close()
 
-def plot_robot_workload_distribution(solution, title="Robot Workload Distribution"):
+
+def plot_robot_paths(solution, grid_size, title="Robot Paths", save_path=None):
     """
-    Plot the workload distribution among robots
+    Visualize robot paths on the grid
+    
+    Args:
+        solution: RobotCoverageSolution object
+        grid_size: Tuple (grid_width, grid_height)
+        title: Plot title
+        save_path: Path to save figure (optional)
+    """
+    grid_width, grid_height = grid_size
+    
+    # Convert paths from list to dict format if needed (SA uses list, GA uses dict)
+    if isinstance(solution.paths, list):
+        paths_dict = {robot_id: path for robot_id, path in enumerate(solution.paths)}
+    elif isinstance(solution.paths, dict):
+        paths_dict = solution.paths
+    else:
+        paths_dict = {}
+    
+    fig, ax = plt.subplots(figsize=(10, 8))
+    
+    # Draw grid
+    for x in range(grid_width + 1):
+        ax.axvline(x, color='black', linewidth=1)
+    for y in range(grid_height + 1):
+        ax.axhline(y, color='black', linewidth=1)
+    
+    # Draw obstacles
+    for obs_idx in solution.obstacles:
+        x = obs_idx % grid_width
+        y = obs_idx // grid_width
+        rect = mpatches.Rectangle((x, y), 1, 1, linewidth=2, 
+                                   edgecolor='black', facecolor='gray', alpha=0.7)
+        ax.add_patch(rect)
+    
+    # Define colors for robots
+    colors = ['red', 'blue', 'green', 'orange', 'purple', 'cyan', 'magenta', 'yellow']
+    
+    # Draw robot paths
+    for robot_id, path in paths_dict.items():
+        if len(path) == 0:
+            continue
+        
+        color = colors[robot_id % len(colors)]
+        
+        # Convert cell indices to coordinates
+        coords = []
+        for cell_idx in path:
+            x = (cell_idx % grid_width) + 0.5
+            y = (cell_idx // grid_width) + 0.5
+            coords.append((x, y))
+        
+        # Draw path
+        if len(coords) > 1:
+            xs, ys = zip(*coords)
+            ax.plot(xs, ys, color=color, linewidth=2, marker='o', 
+                   markersize=8, label=f'Robot {robot_id}', alpha=0.7)
+        
+        # Mark start and end
+        if coords:
+            start_x, start_y = coords[0]
+            ax.plot(start_x, start_y, 'o', color=color, markersize=12, 
+                   markeredgecolor='black', markeredgewidth=2)
+            ax.text(start_x, start_y + 0.3, 'S', ha='center', va='center', 
+                   fontsize=10, fontweight='bold')
+            
+            end_x, end_y = coords[-1]
+            ax.plot(end_x, end_y, 's', color=color, markersize=12, 
+                   markeredgecolor='black', markeredgewidth=2)
+            ax.text(end_x, end_y + 0.3, 'E', ha='center', va='center', 
+                   fontsize=10, fontweight='bold')
+    
+    ax.set_xlim(0, grid_width)
+    ax.set_ylim(0, grid_height)
+    ax.set_aspect('equal')
+    ax.set_xlabel('X', fontsize=12)
+    ax.set_ylabel('Y', fontsize=12)
+    ax.set_title(title, fontsize=14, fontweight='bold')
+    ax.legend(loc='upper left', bbox_to_anchor=(1, 1), fontsize=10)
+    
+    plt.tight_layout()
+    
+    if save_path:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        print(f"✅ Robot paths plot saved to {save_path}")
+    else:
+        plt.show()
+    
+    plt.close()
+
+
+def plot_coverage_heatmap(solution, grid_size, title="Coverage Heatmap", save_path=None):
+    """
+    Create a heatmap showing which robot covers which cell
+    
+    Args:
+        solution: RobotCoverageSolution object
+        grid_size: Tuple (grid_width, grid_height)
+        title: Plot title
+        save_path: Path to save figure (optional)
+    """
+    grid_width, grid_height = grid_size
+    
+    # Convert paths from list to dict format if needed (SA uses list, GA uses dict)
+    if isinstance(solution.paths, list):
+        paths_dict = {robot_id: path for robot_id, path in enumerate(solution.paths)}
+    elif isinstance(solution.paths, dict):
+        paths_dict = solution.paths
+    else:
+        paths_dict = {}
+    
+    # Create coverage matrix
+    coverage_matrix = np.zeros((grid_height, grid_width))
+    
+    for robot_id, path in paths_dict.items():
+        for cell_idx in path:
+            x = cell_idx % grid_width
+            y = cell_idx // grid_width
+            coverage_matrix[y, x] = robot_id + 1  # +1 to distinguish from uncovered (0)
+    
+    # Mark obstacles as -1
+    for obs_idx in solution.obstacles:
+        x = obs_idx % grid_width
+        y = obs_idx // grid_width
+        coverage_matrix[y, x] = -1
+    
+    fig, ax = plt.subplots(figsize=(10, 8))
+    
+    # Create custom colormap
+    cmap = plt.cm.get_cmap('tab10')
+    
+    im = ax.imshow(coverage_matrix, cmap=cmap, interpolation='nearest', 
+                   vmin=-1, vmax=len(solution.paths))
+    
+    # Add grid lines
+    for x in range(grid_width + 1):
+        ax.axvline(x - 0.5, color='black', linewidth=1)
+    for y in range(grid_height + 1):
+        ax.axhline(y - 0.5, color='black', linewidth=1)
+    
+    # Add cell labels
+    for y in range(grid_height):
+        for x in range(grid_width):
+            value = coverage_matrix[y, x]
+            
+            if value == -1:
+                text = 'OBS'
+                color = 'white'
+            elif value == 0:
+                text = '—'
+                color = 'black'
+            else:
+                text = f'R{int(value) - 1}'
+                color = 'white'
+            
+            ax.text(x, y, text, ha='center', va='center', 
+                   color=color, fontsize=10, fontweight='bold')
+    
+    ax.set_xticks(range(grid_width))
+    ax.set_yticks(range(grid_height))
+    ax.set_xlabel('X', fontsize=12)
+    ax.set_ylabel('Y', fontsize=12)
+    ax.set_title(title, fontsize=14, fontweight='bold')
+    
+    # Add colorbar
+    cbar = plt.colorbar(im, ax=ax)
+    cbar.set_label('Robot ID', fontsize=12)
+    
+    plt.tight_layout()
+    
+    if save_path:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        print(f"✅ Coverage heatmap saved to {save_path}")
+    else:
+        plt.show()
+    
+    plt.close()
+
+
+def visualize_solution(solution, title="Multi-Robot Coverage Solution", save_path=None):
+    """
+    Comprehensive visualization of a single solution
     
     Args:
         solution: RobotCoverageSolution object
         title: Plot title
+        save_path: Optional path to save figure
     """
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+    # Get grid dimensions
+    grid_width = solution.grid_width
+    grid_height = solution.grid_height
     
-    robot_distances = solution.fitness['robot_distances']
-    robot_ids = list(range(len(robot_distances)))
+    # Convert paths from list to dict format if needed (SA uses list, GA uses dict)
+    if isinstance(solution.paths, list):
+        paths_dict = {robot_id: path for robot_id, path in enumerate(solution.paths)}
+    elif isinstance(solution.paths, dict):
+        paths_dict = solution.paths
+    else:
+        paths_dict = {}
     
-    # Distance bar plot
-    bars = ax1.bar(robot_ids, robot_distances, color='steelblue', alpha=0.7)
-    ax1.set_title('Robot Travel Distances')
-    ax1.set_xlabel('Robot ID')
-    ax1.set_ylabel('Distance Traveled')
-    ax1.set_xticks(robot_ids)
+    # Debug: Print path information to help diagnose visualization issues
+    print(f"\n🔍 Visualization Debug Info:")
+    print(f"   • Paths type: {type(solution.paths)}")
+    print(f"   • Paths dict keys: {list(paths_dict.keys())}")
+    print(f"   • Paths dict lengths: {[(robot_id, len(path)) for robot_id, path in paths_dict.items()]}")
+    print(f"   • Total path cells: {sum(len(path) for path in paths_dict.values())}")
+    print(f"   • Free cells: {len(solution.free_cells)}")
     
-    # Add value labels on bars
-    for bar, distance in zip(bars, robot_distances):
-        ax1.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.1, 
-                f'{distance:.2f}', ha='center', va='bottom')
+    # Check if paths are empty
+    if not paths_dict or all(len(path) == 0 for path in paths_dict.values()):
+        print(f"   ⚠️  WARNING: All paths are empty! Visualization may not show paths.")
     
-    # Workload pie chart
-    ax2.pie(robot_distances, labels=[f'Robot {i}' for i in robot_ids], 
-           autopct='%1.1f%%', startangle=90)
-    ax2.set_title('Workload Distribution')
+    # Create figure with 2 subplots
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 7))
     
-    plt.suptitle(title, fontsize=16, fontweight='bold')
+    # Subplot 1: Robot paths and assignments
+    # Draw grid
+    for x in range(grid_width + 1):
+        ax1.axvline(x, color='black', linewidth=1)
+    for y in range(grid_height + 1):
+        ax1.axhline(y, color='black', linewidth=1)
+    
+    # Define colors for robots
+    colors = ['red', 'blue', 'green', 'orange', 'purple', 'cyan', 'magenta', 'yellow']
+    
+    # Draw obstacles
+    for obs_idx in solution.obstacles:
+        x = obs_idx % grid_width
+        y = obs_idx // grid_width
+        rect = mpatches.Rectangle((x, y), 1, 1, linewidth=2, 
+                                   edgecolor='black', facecolor='gray', alpha=0.7)
+        ax1.add_patch(rect)
+        ax1.text(x + 0.5, y + 0.5, 'X', ha='center', va='center', 
+                color='white', fontsize=12, fontweight='bold')
+    
+    # Draw robot paths
+    for robot_id, path in paths_dict.items():
+        if len(path) == 0:
+            continue
+        
+        color = colors[robot_id % len(colors)]
+        
+        # Highlight cells covered by this robot
+        for cell_idx in path:
+            x = cell_idx % grid_width
+            y = cell_idx // grid_width
+            rect = mpatches.Rectangle((x, y), 1, 1, linewidth=1, 
+                                       edgecolor='black', facecolor=color, alpha=0.3)
+            ax1.add_patch(rect)
+        
+        # Convert cell indices to coordinates
+        coords = []
+        for cell_idx in path:
+            x = (cell_idx % grid_width) + 0.5
+            y = (cell_idx // grid_width) + 0.5
+            coords.append((x, y))
+        
+        # Draw path line
+        if len(coords) > 1:
+            xs, ys = zip(*coords)
+            ax1.plot(xs, ys, color=color, linewidth=2.5, marker='o', 
+                    markersize=8, label=f'Robot {robot_id}', alpha=0.9)
+        
+        # Mark start and end positions
+        if coords:
+            start_x, start_y = coords[0]
+            ax1.plot(start_x, start_y, 'o', color=color, markersize=15, 
+                    markeredgecolor='black', markeredgewidth=2.5)
+            ax1.text(start_x, start_y - 0.25, 'S', ha='center', va='center', 
+                    fontsize=9, fontweight='bold', color='black',
+                    bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8))
+            
+            end_x, end_y = coords[-1]
+            ax1.plot(end_x, end_y, 's', color=color, markersize=15, 
+                    markeredgecolor='black', markeredgewidth=2.5)
+            ax1.text(end_x, end_y - 0.25, 'E', ha='center', va='center', 
+                    fontsize=9, fontweight='bold', color='black',
+                    bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8))
+    
+    ax1.set_xlim(0, grid_width)
+    ax1.set_ylim(0, grid_height)
+    ax1.set_aspect('equal')
+    ax1.set_xlabel('X Coordinate', fontsize=12)
+    ax1.set_ylabel('Y Coordinate', fontsize=12)
+    ax1.set_title('Robot Paths', fontsize=13, fontweight='bold')
+    ax1.legend(loc='upper left', bbox_to_anchor=(1.02, 1), fontsize=10)
+    ax1.grid(True, alpha=0.2)
+    
+    # Subplot 2: Performance metrics
+    ax2.axis('off')
+    
+    # Calculate metrics (handle both GA and SA solutions)
+    # Coverage efficiency
+    if hasattr(solution, 'get_coverage_efficiency'):
+        coverage_efficiency = solution.get_coverage_efficiency()
+    else:
+        # Calculate from fitness data
+        if solution.fitness and 'coverage_score' in solution.fitness:
+            coverage_efficiency = (solution.fitness['coverage_score'] / len(solution.free_cells)) * 100 if len(solution.free_cells) > 0 else 0
+        else:
+            coverage_efficiency = 0.0
+    
+    # Workload balance index
+    if hasattr(solution, 'get_workload_balance_index'):
+        balance_index = solution.get_workload_balance_index()
+    else:
+        # Calculate from fitness data
+        if solution.fitness and 'balance_score' in solution.fitness:
+            balance_index = solution.fitness['balance_score']
+        else:
+            balance_index = 0.0
+    
+    # Count cells covered
+    if isinstance(paths_dict, dict):
+        cells_covered = sum(len(path) for path in paths_dict.values())
+    else:
+        cells_covered = 0
+    
+    # Format combined score safely
+    combined_score_str = f"{solution.combined_score:.4f}" if solution.combined_score is not None else "N/A"
+    
+    # Display solution metrics
+    metrics_text = f"""
+    SOLUTION PERFORMANCE METRICS
+    {'='*40}
+    
+    Combined Score: {combined_score_str}
+    
+    Coverage Metrics:
+    • Coverage Efficiency: {coverage_efficiency:.2f}%
+    • Cells Covered: {cells_covered}
+    • Total Free Cells: {len(solution.free_cells)}
+    
+    Workload Distribution:
+    • Balance Index: {balance_index:.4f}
+    """
+    
+    # Add individual robot workloads
+    if solution.fitness and 'robot_distances' in solution.fitness:
+        metrics_text += "\n    Robot Workloads:\n"
+        for robot_id, distance in enumerate(solution.fitness['robot_distances']):
+            metrics_text += f"    • Robot {robot_id}: {distance:.2f} units\n"
+    
+    # Add constraint information
+    if solution.fitness and 'problems' in solution.fitness:
+        violations = len(solution.fitness['problems'])
+        metrics_text += f"\n    Constraint Violations: {violations}\n"
+    
+    ax2.text(0.05, 0.95, metrics_text, transform=ax2.transAxes,
+            fontsize=11, verticalalignment='top', fontfamily='monospace',
+            bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+    
+    plt.suptitle(title, fontsize=15, fontweight='bold', y=0.98)
     plt.tight_layout()
+    
+    if save_path:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        print(f"✅ Solution visualization saved to {save_path}")
+    else:
+        plt.show()
+    
+    plt.close()
+    
     return fig
 
-def save_figure(fig, filename, dpi=300):
-    """Save figure to file"""
-    fig.savefig(filename, dpi=dpi, bbox_inches='tight')
-    print(f"Figure saved as: {filename}")
 
-def create_results_summary(solutions, titles, filename="results_summary.txt"):
-    """Create a text summary of results"""
-    with open(filename, 'w') as f:
-        f.write("Multi-Robot Coverage Path Planning - Results Summary\n")
-        f.write("=" * 60 + "\n\n")
-        
-        for i, (solution, title) in enumerate(zip(solutions, titles)):
-            f.write(f"Solution {i+1}: {title}\n")
-            f.write("-" * 40 + "\n")
-            f.write(f"Coverage Score: {solution.fitness['coverage_score']} cells\n")
-            f.write(f"Balance Score: {solution.fitness['balance_score']:.3f}\n")
-            f.write(f"Combined Score: {solution.combined_score:.3f}\n")
-            f.write(f"Robot Distances: {solution.fitness['robot_distances']}\n")
-            f.write(f"Constraint Violations: {len(solution.fitness['problems'])}\n")
-            f.write("\n")
+def save_all_figures(solution, convergence_history, grid_size, output_dir="results/figures"):
+    """Generate and save all visualization figures"""
+    import os
+    os.makedirs(output_dir, exist_ok=True)
     
-    print(f"Results summary saved as: {filename}")
+    print(f"\n{'='*70}")
+    print("GENERATING ALL VISUALIZATIONS")
+    print(f"{'='*70}")
+    
+    plot_convergence_history(convergence_history, title="GA Convergence History",
+                            save_path=f"{output_dir}/ga_convergence.png")
+    plot_robot_paths(solution, grid_size=grid_size,
+                    title=f"Best Solution - Score: {solution.combined_score:.3f}",
+                    save_path=f"{output_dir}/ga_robot_paths.png")
+    plot_coverage_heatmap(solution, grid_size=grid_size, title="Coverage Distribution",
+                         save_path=f"{output_dir}/ga_coverage_heatmap.png")
+    
+    print(f"✅ All visualizations saved to {output_dir}/")
+    print(f"{'='*70}\n")
+
+
+# ...keep other existing functions (plot_objective_comparison, etc.)...

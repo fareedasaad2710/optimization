@@ -1,0 +1,135 @@
+================================================================================
+CASE STUDY 3: LARGE GRID (10x10, 5 Robots) - ACO RESULTS
+================================================================================
+
+Problem Configuration:
+  Grid Size: 10x10
+  Free Cells: 87
+  Obstacles: 13
+  Robots: 5
+
+ACO Parameters:
+  • num_ants: 20
+  • initial_pheromone: 1.0
+  • rho: 0.5
+  • alpha: 1.0
+  • beta: 1.0
+  • iterations: 100
+  • gamma: 1.0
+  • seed: 42
+
+Best Solution:
+  • F1 (Coverage): 87/87 cells
+  • F2 (Workload Imbalance): 4.00
+  • Robot Path Lengths: {0: 49.0, 1: 50.0, 2: 50.0, 3: 49.0, 4: 52.0}
+
+Path Details:
+  Robot 0: 51 cells, Length=49.00
+  Robot 1: 51 cells, Length=50.00
+  Robot 2: 51 cells, Length=50.00
+  Robot 3: 50 cells, Length=49.00
+  Robot 4: 53 cells, Length=52.00
+
+Runtime: 422.81 seconds (7.05 minutes)
+
+Convergence History:
+  Iteration 1: F1=87, F2=34.00, Feasible=20/20
+  Iteration 2: F1=87, F2=34.00, Feasible=20/20
+  Iteration 3: F1=87, F2=26.40, Feasible=20/20
+  Iteration 4: F1=87, F2=22.80, Feasible=20/20
+  Iteration 5: F1=87, F2=22.80, Feasible=20/20
+  Iteration 6: F1=87, F2=22.80, Feasible=20/20
+  Iteration 7: F1=87, F2=22.80, Feasible=20/20
+  Iteration 8: F1=87, F2=18.40, Feasible=20/20
+  Iteration 9: F1=87, F2=18.40, Feasible=20/20
+  Iteration 10: F1=87, F2=18.40, Feasible=20/20
+  Iteration 11: F1=87, F2=18.40, Feasible=20/20
+  Iteration 12: F1=87, F2=18.40, Feasible=20/20
+  Iteration 13: F1=87, F2=18.40, Feasible=20/20
+  Iteration 14: F1=87, F2=18.40, Feasible=20/20
+  Iteration 15: F1=87, F2=17.60, Feasible=20/20
+  Iteration 16: F1=87, F2=17.60, Feasible=20/20
+  Iteration 17: F1=87, F2=17.60, Feasible=20/20
+  Iteration 18: F1=87, F2=17.60, Feasible=20/20
+  Iteration 19: F1=87, F2=15.20, Feasible=20/20
+  Iteration 20: F1=87, F2=15.20, Feasible=20/20
+  Iteration 21: F1=87, F2=15.20, Feasible=20/20
+  Iteration 22: F1=87, F2=15.20, Feasible=20/20
+  Iteration 23: F1=87, F2=15.20, Feasible=20/20
+  Iteration 24: F1=87, F2=15.20, Feasible=20/20
+  Iteration 25: F1=87, F2=15.20, Feasible=20/20
+  Iteration 26: F1=87, F2=14.40, Feasible=20/20
+  Iteration 27: F1=87, F2=14.40, Feasible=20/20
+  Iteration 28: F1=87, F2=14.40, Feasible=20/20
+  Iteration 29: F1=87, F2=14.40, Feasible=20/20
+  Iteration 30: F1=87, F2=14.40, Feasible=20/20
+  Iteration 31: F1=87, F2=14.40, Feasible=20/20
+  Iteration 32: F1=87, F2=14.40, Feasible=20/20
+  Iteration 33: F1=87, F2=14.40, Feasible=20/20
+  Iteration 34: F1=87, F2=14.40, Feasible=20/20
+  Iteration 35: F1=87, F2=14.40, Feasible=20/20
+  Iteration 36: F1=87, F2=12.00, Feasible=20/20
+  Iteration 37: F1=87, F2=12.00, Feasible=20/20
+  Iteration 38: F1=87, F2=12.00, Feasible=20/20
+  Iteration 39: F1=87, F2=12.00, Feasible=20/20
+  Iteration 40: F1=87, F2=12.00, Feasible=20/20
+  Iteration 41: F1=87, F2=12.00, Feasible=20/20
+  Iteration 42: F1=87, F2=12.00, Feasible=20/20
+  Iteration 43: F1=87, F2=12.00, Feasible=20/20
+  Iteration 44: F1=87, F2=12.00, Feasible=20/20
+  Iteration 45: F1=87, F2=12.00, Feasible=20/20
+  Iteration 46: F1=87, F2=12.00, Feasible=20/20
+  Iteration 47: F1=87, F2=12.00, Feasible=20/20
+  Iteration 48: F1=87, F2=4.00, Feasible=20/20
+  Iteration 49: F1=87, F2=4.00, Feasible=20/20
+  Iteration 50: F1=87, F2=4.00, Feasible=20/20
+  Iteration 51: F1=87, F2=4.00, Feasible=20/20
+  Iteration 52: F1=87, F2=4.00, Feasible=20/20
+  Iteration 53: F1=87, F2=4.00, Feasible=20/20
+  Iteration 54: F1=87, F2=4.00, Feasible=20/20
+  Iteration 55: F1=87, F2=4.00, Feasible=20/20
+  Iteration 56: F1=87, F2=4.00, Feasible=20/20
+  Iteration 57: F1=87, F2=4.00, Feasible=20/20
+  Iteration 58: F1=87, F2=4.00, Feasible=20/20
+  Iteration 59: F1=87, F2=4.00, Feasible=20/20
+  Iteration 60: F1=87, F2=4.00, Feasible=20/20
+  Iteration 61: F1=87, F2=4.00, Feasible=20/20
+  Iteration 62: F1=87, F2=4.00, Feasible=20/20
+  Iteration 63: F1=87, F2=4.00, Feasible=20/20
+  Iteration 64: F1=87, F2=4.00, Feasible=20/20
+  Iteration 65: F1=87, F2=4.00, Feasible=20/20
+  Iteration 66: F1=87, F2=4.00, Feasible=20/20
+  Iteration 67: F1=87, F2=4.00, Feasible=20/20
+  Iteration 68: F1=87, F2=4.00, Feasible=20/20
+  Iteration 69: F1=87, F2=4.00, Feasible=20/20
+  Iteration 70: F1=87, F2=4.00, Feasible=20/20
+  Iteration 71: F1=87, F2=4.00, Feasible=20/20
+  Iteration 72: F1=87, F2=4.00, Feasible=20/20
+  Iteration 73: F1=87, F2=4.00, Feasible=20/20
+  Iteration 74: F1=87, F2=4.00, Feasible=20/20
+  Iteration 75: F1=87, F2=4.00, Feasible=20/20
+  Iteration 76: F1=87, F2=4.00, Feasible=20/20
+  Iteration 77: F1=87, F2=4.00, Feasible=20/20
+  Iteration 78: F1=87, F2=4.00, Feasible=20/20
+  Iteration 79: F1=87, F2=4.00, Feasible=20/20
+  Iteration 80: F1=87, F2=4.00, Feasible=20/20
+  Iteration 81: F1=87, F2=4.00, Feasible=20/20
+  Iteration 82: F1=87, F2=4.00, Feasible=20/20
+  Iteration 83: F1=87, F2=4.00, Feasible=20/20
+  Iteration 84: F1=87, F2=4.00, Feasible=20/20
+  Iteration 85: F1=87, F2=4.00, Feasible=20/20
+  Iteration 86: F1=87, F2=4.00, Feasible=20/20
+  Iteration 87: F1=87, F2=4.00, Feasible=20/20
+  Iteration 88: F1=87, F2=4.00, Feasible=20/20
+  Iteration 89: F1=87, F2=4.00, Feasible=20/20
+  Iteration 90: F1=87, F2=4.00, Feasible=20/20
+  Iteration 91: F1=87, F2=4.00, Feasible=20/20
+  Iteration 92: F1=87, F2=4.00, Feasible=20/20
+  Iteration 93: F1=87, F2=4.00, Feasible=20/20
+  Iteration 94: F1=87, F2=4.00, Feasible=20/20
+  Iteration 95: F1=87, F2=4.00, Feasible=20/20
+  Iteration 96: F1=87, F2=4.00, Feasible=20/20
+  Iteration 97: F1=87, F2=4.00, Feasible=20/20
+  Iteration 98: F1=87, F2=4.00, Feasible=20/20
+  Iteration 99: F1=87, F2=4.00, Feasible=20/20
+  Iteration 100: F1=87, F2=4.00, Feasible=20/20
