@@ -2,6 +2,7 @@
 Case Studies for Multi-Robot Coverage Path Planning
 ===================================================
 
+
 This module contains different case studies to test and validate
 the GA and SA algorithms on various problem configurations.
 """
