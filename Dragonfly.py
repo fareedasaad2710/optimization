@@ -18,6 +18,8 @@ from problem_formulation import (
     create_grid_cells
 )
 
+from visualization import LiveDragonflyVisualizer
+
 # Import ant3.py's robust path building function
 import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), 'milestone5'))
@@ -1329,7 +1331,7 @@ class DragonflyOptimizer:
         """
         Generate enemy moves (move away from worst solution).
         Discrete equivalent of:
-            E_i = X⁻ + X_i
+            E_i = X^- + X_i
         """
         moves: List[Tuple[int, int, int]] = []
 
@@ -1507,7 +1509,7 @@ class DragonflyOptimizer:
                             break
                     if best_robot is not None:
                         break
-                
+            
                 # If found adjacent robot, assign there
                 if best_robot is not None:
                     partition.setdefault(best_robot, [])
@@ -1629,6 +1631,21 @@ class DragonflyOptimizer:
         """
         # Step 1: Initialize population
         self.initialize_population()
+
+        # Live visualization (optional)
+        live_viz = None
+        if self.verbose:  # or replace with a dedicated flag like self.live_visualization
+            live_viz = LiveDragonflyVisualizer(
+                grid_width=self.grid_width,
+                grid_height=self.grid_height,
+                obstacles=self.obstacles,
+                every=1,  # increase to 2 or 5 if GUI is slow
+                title_prefix="🐉 Dragonfly Best"
+            )
+
+        # Snapshots for GIF creation
+        history_snapshots: List[Tuple[int, Dict[int, List[int]], Dict[int, List[int]]]] = []
+        SNAP_EVERY = 5  # save every 5 iterations
 
         if self.verbose:
             print(f"\nStarting Dragonfly Optimization")
@@ -1927,6 +1944,26 @@ class DragonflyOptimizer:
             self.history["avg_fitness"].append(avg_fitness)
             self.history["best_combined_score"].append(self.best_combined_score_so_far)
 
+            # Live update of current best solution
+            if live_viz is not None:
+                live_viz.update(
+                    iteration=iteration,
+                    partition=self.food.partition,
+                    paths=self.food.paths,
+                    best_fitness=self.food.fitness,
+                    best_score=self.best_combined_score_so_far
+                )
+
+            # Save snapshot for GIF
+            if iteration % SNAP_EVERY == 0:
+                history_snapshots.append(
+                    (
+                        iteration,
+                        {r: list(cells) for r, cells in self.food.partition.items()},
+                        {r: list(path) for r, path in self.food.paths.items()},
+                    )
+                )
+
             # Print progress
             if self.verbose and (iteration + 1) % 10 == 0:
                 print(
@@ -1939,6 +1976,13 @@ class DragonflyOptimizer:
             if self.history["best_combined_score"]:
                 print(f"Final best score (plotted): {self.history['best_combined_score'][-1]:.4f}")
             print(f"Final best fitness: {self.food.fitness:.4f}")
+
+        # Close live visualizer
+        if live_viz is not None:
+            live_viz.close()
+
+        # Attach snapshots so __main__ can build a GIF
+        self.history["snapshots"] = history_snapshots
 
         # Return best solution (partition + paths) instead of RobotCoverageSolution
         return self.food.partition, self.food.paths, self.history
@@ -2291,6 +2335,27 @@ if __name__ == "__main__":
             print(f"⚠️  Visualization error: {e}")
             traceback.print_exc()
 
+    # Create GIF of Dragonfly evolution (if snapshots are available)
+    try:
+        from visualization import create_dragonfly_animation
+
+        history_snapshots = history.get("snapshots", [])
+        if history_snapshots:
+            gif_path = f"{results_dir}/{run_prefix}_evolution.gif"
+            create_dragonfly_animation(
+                history_snapshots=history_snapshots,
+                grid_width=grid_width,
+                grid_height=grid_height,
+                obstacles=obstacles,
+                save_path=gif_path,
+                fps=2
+            )
+            print(f"✅ GIF saved: {gif_path}")
+        else:
+            print("No snapshots found in history; GIF not created.")
+    except Exception as e:
+        print(f"⚠️  Could not create GIF animation: {e}")
+
     # Save history to a file
     try:
         out_path = f"{results_dir}/{run_prefix}_history.txt"
@@ -2299,4 +2364,4 @@ if __name__ == "__main__":
                 f.write(f"{it}\t{bf}\t{af}\n")
         print(f"📄 Saved history to: {out_path}")
     except Exception as e:
-        print(f"⚠️ Could not save history file: {e}")
+        print(f"⚠️  Could not save history file: {e}")

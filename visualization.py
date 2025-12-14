@@ -753,21 +753,12 @@ def plot_single_solution(ax, partition, paths, grid_width, grid_height, obstacle
     ax.set_xticks([])
     ax.set_yticks([])
 
+# ...existing code...
 
-def visualize_solution(partition, paths, grid_width, grid_height, obstacles, 
-                       title="Dragonfly Solution", save_path=None):
+def visualize_dragonfly_solution(partition, paths, grid_width, grid_height, obstacles, 
+                                 title="Dragonfly Solution", save_path=None):
     """
-    Visualize the final solution with robot assignments and paths.
-    UPDATED: Fixed function signature to match Dragonfly usage.
-    
-    Args:
-        partition: Dict {robot_id: [cells]}
-        paths: Dict {robot_id: [path]}
-        grid_width: Grid width
-        grid_height: Grid height
-        obstacles: List of obstacle cell indices
-        title: Plot title
-        save_path: Optional path to save figure
+    Visualize the final solution with robot assignments and paths (Dragonfly-specific).
     """
     fig, ax = plt.subplots(figsize=(12, 10))
     
@@ -788,6 +779,54 @@ def visualize_solution(partition, paths, grid_width, grid_height, obstacles,
     else:
         plt.show()
 
+
+class LiveDragonflyVisualizer:
+    """
+    Live-updating figure for Dragonfly optimization.
+    Uses your existing plot_single_solution().
+    """
+    def __init__(self, grid_width, grid_height, obstacles, every=1, title_prefix="🐉 Dragonfly"):
+        self.grid_width = grid_width
+        self.grid_height = grid_height
+        self.obstacles = obstacles
+        self.every = max(1, int(every))
+        self.title_prefix = title_prefix
+
+        self.fig, self.ax = plt.subplots(figsize=(10, 8))
+        plt.ion()                      # interactive mode ON
+        self.fig.show()
+        self.fig.canvas.draw()
+
+    def update(self, iteration, partition, paths, best_fitness=None, best_score=None):
+        if iteration % self.every != 0:
+            return
+
+        subtitle = []
+        if best_fitness is not None:
+            subtitle.append(f"fitness={best_fitness:.4f}")
+        if best_score is not None:
+            subtitle.append(f"score={best_score:.4f}")
+
+        title = f"{self.title_prefix} | Iter {iteration}"
+        if subtitle:
+            title += " | " + " , ".join(subtitle)
+
+        plot_single_solution(
+            self.ax,
+            partition=partition,
+            paths=paths,
+            grid_width=self.grid_width,
+            grid_height=self.grid_height,
+            obstacles=self.obstacles,
+            title=title
+        )
+
+        self.fig.canvas.draw_idle()
+        plt.pause(0.001)               # lets the GUI breathe (non-blocking)
+
+    def close(self):
+        plt.ioff()
+        plt.close(self.fig)
 
 def create_dragonfly_animation(
     history_snapshots: list,
