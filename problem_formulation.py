@@ -235,19 +235,20 @@ def evaluate_solution(assignment, paths, all_cells, free_cells, obstacles, grid_
     results['path_jumps'] = path_jumps
     
     # 5. Check for Cell Conflicts (multiple robots assigned to same cell)
-    cell_assignment_count = {}
+    # Only flag if cell is assigned to MULTIPLE DIFFERENT robots (not same robot visiting multiple times)
+    cell_to_robots = {}  # cell_idx -> set of robot_ids
     for robot_id, path in paths.items():
         for cell_idx in path:
-            if cell_idx not in cell_assignment_count:
-                cell_assignment_count[cell_idx] = []
-            cell_assignment_count[cell_idx].append(robot_id)
+            if cell_idx not in cell_to_robots:
+                cell_to_robots[cell_idx] = set()
+            cell_to_robots[cell_idx].add(robot_id)
     
     conflicts = 0
-    for cell_idx, robots in cell_assignment_count.items():
-        if len(robots) > 1:
+    for cell_idx, robots_set in cell_to_robots.items():
+        if len(robots_set) > 1:  # Multiple different robots
             conflicts += 1
             results['problems'].append(
-                f"Cell {cell_idx} assigned to multiple robots: {robots}"
+                f"Cell {cell_idx} assigned to multiple robots: {sorted(robots_set)}"
             )
     
     results['cell_conflicts'] = conflicts
