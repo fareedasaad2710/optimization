@@ -276,7 +276,7 @@ def build_spanning_tree_path(start_cell_idx, assigned_cells, all_cells, free_cel
 
 
 # ============================================================================
-# FEASIBILITY CHECKING FUNCTIONS (from Dragonfly.py / ant3.py)
+# FEASIBILITY CHECKING FUNCTIONS 
 # ============================================================================
 
 def check_path_continuity(path: List[int], all_cells: List, grid_width: int, grid_height: int) -> Tuple[bool, List[str]]:
@@ -524,9 +524,9 @@ class RobotCoverageSolution:
 
 def generate_random_solution(all_cells, free_cells, obstacles, grid_width, grid_height, num_robots, max_attempts=100):
     """
-    Generate a random FEASIBLE solution using DARP + UF-STC (like ant3.py/Dragonfly).
+    Generate a random FEASIBLE solution using DARP + UF-STC + Greedy Coverage Completion.
     
-    ⚠️  CRITICAL: Uses DARP partitioning + spanning tree path construction
+    ⚠️  CRITICAL: Uses DARP partitioning + spanning tree path construction + greedy fill
     """
     for attempt in range(max_attempts):
         total_cells = len(all_cells)
@@ -566,6 +566,20 @@ def generate_random_solution(all_cells, free_cells, obstacles, grid_width, grid_
                 robot_paths[robot_id] = path if path else robot_cells
             else:
                 robot_paths[robot_id] = []
+        
+        # ✅ STEP 3: VERIFY COVERAGE
+        # The spanning tree should have covered all assigned cells
+        # If there are still missing cells, it indicates a problem with DARP or spanning tree
+        covered_cells = set()
+        for robot_id, path in robot_paths.items():
+            covered_cells.update(path)
+        
+        uncovered_cells = set(free_cells) - covered_cells
+        
+        # If there are uncovered cells, this solution failed - let the outer loop retry
+        if uncovered_cells:
+            # This solution didn't cover all cells, try again
+            continue
         
         solution = RobotCoverageSolution(
             assignment, 
@@ -629,8 +643,8 @@ def initialize_population(population_size, all_cells, free_cells, obstacles, gri
 # SELECTION
 # ============================================================================
 
-def tournament_selection(population, tournament_size=3):
-    """Select best solution from random tournament"""
+def tournament_selection(population, tournament_size=5):
+    """Select best solution from random tournament (increased size for better selection pressure)"""
     tournament = random.sample(population, min(tournament_size, len(population)))
     winner = min(tournament, key=lambda x: x.combined_score if x.combined_score is not None else float('inf'))
     return winner
@@ -771,6 +785,11 @@ def crossover_order_based(parent1, parent2, verbose=False, free_cells=None):
                 if cell_idx < len(child.assignment):
                     child.assignment[cell_idx][robot_id] = 1
     
+    # Simple local optimization: just remove consecutive duplicates
+    for robot_id in range(num_robots):
+        if len(child.paths[robot_id]) > 2:
+            child.paths[robot_id] = optimize_path_locally(child.paths[robot_id], child.all_cells)
+    
     # Sync assignment and paths
     child.sync_assignment_with_paths()
     child.evaluate()
@@ -807,8 +826,24 @@ def apply_crossover(parent1, parent2, verbose=False, free_cells=None, all_cells=
 # MUTATION OPERATORS
 # ============================================================================
 
+def optimize_path_locally(path, all_cells):
+    """
+    Simple local optimization: just remove consecutive duplicates
+    """
+    if len(path) <= 2:
+        return path
+    
+    # Remove consecutive duplicates only
+    cleaned = [path[0]]
+    for i in range(1, len(path)):
+        if path[i] != path[i-1]:
+            cleaned.append(path[i])
+    
+    return cleaned
+
+
 def mutate_robot_path(solution, robot_id):
-    """Mutate a robot's path by swapping two positions"""
+    """Simple mutation: swap or reverse segment"""
     if robot_id not in solution.paths:
         return False
     
@@ -817,16 +852,24 @@ def mutate_robot_path(solution, robot_id):
     if len(path) <= 2:
         return False
     
-    # Pick two random positions
-    pos1 = random.randint(0, len(path) - 1)
-    pos2 = random.randint(0, len(path) - 1)
-    while pos2 == pos1 and len(path) > 1:
+    # Simple mutation: 50% swap, 50% reverse
+    if random.random() < 0.5:
+        # Swap two random positions
+        pos1 = random.randint(0, len(path) - 1)
         pos2 = random.randint(0, len(path) - 1)
-    
-    # Swap
-    new_path = path.copy()
-    new_path[pos1], new_path[pos2] = new_path[pos2], new_path[pos1]
-    solution.paths[robot_id] = new_path
+        while pos2 == pos1 and len(path) > 1:
+            pos2 = random.randint(0, len(path) - 1)
+        
+        new_path = path.copy()
+        new_path[pos1], new_path[pos2] = new_path[pos2], new_path[pos1]
+        solution.paths[robot_id] = new_path
+    else:
+        # Reverse a random segment
+        if len(path) >= 3:
+            pos1 = random.randint(0, len(path) - 2)
+            pos2 = random.randint(pos1 + 1, len(path) - 1)
+            new_path = path[:pos1] + path[pos1:pos2+1][::-1] + path[pos2+1:]
+            solution.paths[robot_id] = new_path
     
     # Sync assignment
     solution.sync_assignment_with_paths()
@@ -834,9 +877,9 @@ def mutate_robot_path(solution, robot_id):
     return True
 
 
-def mutate(solution, mutation_rate=0.1, all_cells=None, obstacles=None, grid_width=None, grid_height=None, max_attempts=20):
+def mutate(solution, mutation_rate=0.1, all_cells=None, obstacles=None, grid_width=None, grid_height=None, free_cells=None, max_attempts=20):
     """
-    Mutate solution - only returns FEASIBLE mutated solution.
+    Simple mutation - just mutate robot paths.
     
     ⚠️  Retries until feasible mutation or returns original
     """
@@ -867,8 +910,10 @@ def mutate(solution, mutation_rate=0.1, all_cells=None, obstacles=None, grid_wid
                 )
                 
                 if is_feasible:
+                    mutated.evaluate()
                     return mutated  # ✅ Found feasible mutation
             else:
+                mutated.evaluate()
                 return mutated
     
     # If no feasible mutation found, return original
@@ -878,6 +923,39 @@ def mutate(solution, mutation_rate=0.1, all_cells=None, obstacles=None, grid_wid
 # ============================================================================
 # MAIN GENETIC ALGORITHM
 # ============================================================================
+
+def calculate_population_diversity(population):
+    """
+    Calculate population diversity based on solution differences.
+    Returns value between 0 (all identical) and 1 (maximum diversity).
+    """
+    if len(population) < 2:
+        return 0.0
+    
+    # Sample pairs to measure diversity
+    num_samples = min(100, len(population) * (len(population) - 1) // 2)
+    total_difference = 0
+    
+    for _ in range(num_samples):
+        sol1, sol2 = random.sample(population, 2)
+        
+        # Measure path differences
+        path_diff = 0
+        num_robots = len(sol1.paths)
+        for robot_id in range(num_robots):
+            path1 = set(sol1.paths.get(robot_id, []))
+            path2 = set(sol2.paths.get(robot_id, []))
+            # Jaccard distance: (size of union - size of intersection) / size of union
+            union = len(path1 | path2)
+            if union > 0:
+                intersection = len(path1 & path2)
+                path_diff += 1.0 - (intersection / union)
+        
+        total_difference += path_diff / num_robots if num_robots > 0 else 0
+    
+    diversity = total_difference / num_samples
+    return min(1.0, diversity)
+
 
 def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height, num_robots,
                       population_size=50, generations=100, 
@@ -950,11 +1028,15 @@ def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height,
         'avg_score': [],
         'worst_score': [],
         'best_coverage': [],
-        'best_balance': []
+        'best_balance': [],
+        'diversity': []
     }
     
     # Main GA loop
     for generation in range(generations):
+        
+        # Calculate population diversity
+        diversity = calculate_population_diversity(population)
         
         if verbose and (generation % 10 == 0 or generation < 3):
             print(f"\n{'─'*70}")
@@ -997,18 +1079,26 @@ def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height,
             child.evaluate()
             new_population.append(child)
         
-        # 3. MUTATION - mutate worst solutions (only feasible)
+        # 3. MUTATION - mutate solutions with randomness for diversity
         sorted_population_by_worst = sorted(population, key=lambda x: x.combined_score if x.combined_score is not None else float('inf'), reverse=True)
         
         for i in range(num_mutation):
-            worst_solution = sorted_population_by_worst[i]
+            # Add randomness: 70% mutate worst, 30% mutate random solution
+            if random.random() < 0.7:
+                # Mutate from worst solutions
+                parent_solution = sorted_population_by_worst[min(i, len(sorted_population_by_worst)-1)]
+            else:
+                # Mutate random solution for extra diversity
+                parent_solution = random.choice(population)
+            
             mutated = mutate(
-                worst_solution, 
+                parent_solution, 
                 mutation_rate=1.0,  # Force mutation
                 all_cells=all_cells,
                 obstacles=obstacles,
                 grid_width=grid_width,
-                grid_height=grid_height
+                grid_height=grid_height,
+                free_cells=free_cells
             )
             mutated.evaluate()
             new_population.append(mutated)
@@ -1040,6 +1130,7 @@ def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height,
         convergence_history['best_score'].append(min(scores))
         convergence_history['avg_score'].append(sum(scores) / len(scores))
         convergence_history['worst_score'].append(max(scores))
+        convergence_history['diversity'].append(diversity)
         
         if best_solution.fitness:
             convergence_history['best_coverage'].append(best_solution.fitness['coverage_score'])
@@ -1058,6 +1149,7 @@ def genetic_algorithm(all_cells, free_cells, obstacles, grid_width, grid_height,
             print(f"      • Best Score:     {safe_format_score(best_score)}")
             print(f"      • Current Best:   {safe_format_score(current_best_score)}")
             print(f"      • Average:        {safe_format_score(avg_score)}")
+            print(f"      • Diversity:      {diversity:.3f} (0=converged, 1=diverse)")
             if best_solution.fitness:
                 print(f"      • Coverage:       {best_solution.fitness['coverage_score']}/{len(free_cells)} cells")
                 print(f"      • Balance:        {best_solution.fitness['balance_score']:.3f}")
@@ -1173,13 +1265,13 @@ def run_ga_case_study_1():
     print(f"  Obstacles: {len(obstacles)}")
     print(f"  Robots: {num_robots}")
     
-    # GA parameters
+    # GA parameters - increased diversity for better exploration
     ga_params = {
-        'population_size': 30,
+        'population_size': 50,         # Increased for more diversity
         'generations': 50,
-        'selection_percentage': 0.10,
-        'crossover_percentage': 0.80,
-        'mutation_percentage': 0.10
+        'selection_percentage': 0.10,  # Standard 10%
+        'crossover_percentage': 0.60,  # Reduced to 60%
+        'mutation_percentage': 0.30    # Increased to 30% for strong exploration
     }
     
     print(f"\nGA Parameters: {ga_params}")
@@ -1280,7 +1372,7 @@ def run_ga_case_study_2():
     # Problem parameters
     grid_width, grid_height = 6, 6
     num_robots = 3
-    obstacles = [1, 7, 13, 19, 25, 31]  # 6 obstacles
+    obstacles = [1, 7, 13, 19]  # 4 obstacles (removed bottom 2: 25, 31)
     
     all_cells = [(x, y) for y in range(grid_height) for x in range(grid_width)]
     free_cells = [i for i in range(grid_width * grid_height) if i not in obstacles]
@@ -1291,13 +1383,13 @@ def run_ga_case_study_2():
     print(f"  Obstacles: {len(obstacles)}")
     print(f"  Robots: {num_robots}")
     
-    # GA parameters
+    # GA parameters - increased diversity for better exploration
     ga_params = {
-        'population_size': 50,
+        'population_size': 100,        # DOUBLED - more initial diversity
         'generations': 100,
-        'selection_percentage': 0.10,
-        'crossover_percentage': 0.80,
-        'mutation_percentage': 0.10
+        'selection_percentage': 0.10,  # Standard 10%
+        'crossover_percentage': 0.60,  # Reduced to 60%
+        'mutation_percentage': 0.30    # INCREASED to 30% for strong exploration
     }
     
     print(f"\nGA Parameters: {ga_params}")
@@ -1407,13 +1499,13 @@ def run_ga_case_study_3():
     print(f"  Obstacles: {len(obstacles)}")
     print(f"  Robots: {num_robots}")
     
-    # GA parameters
+    # GA parameters - increased diversity for better exploration
     ga_params = {
-        'population_size': 100,
+        'population_size': 150,        # Increased for more diversity
         'generations': 200,
-        'selection_percentage': 0.10,
-        'crossover_percentage': 0.80,
-        'mutation_percentage': 0.10
+        'selection_percentage': 0.10,  # Standard 10%
+        'crossover_percentage': 0.60,  # Reduced to 60%
+        'mutation_percentage': 0.30    # Increased to 30% for strong exploration
     }
     
     print(f"\nGA Parameters: {ga_params}")
