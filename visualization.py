@@ -1059,9 +1059,9 @@ def plot_live_dragonfly_progress(iteration, best_fitness, avg_fitness, max_itera
         print()  # New line at the end
 
 
-def plot_best_score_only(history, save_path=None):
+def plot_dragonfly_best_score(history, save_path=None):
     """
-    Simple plot showing only the best combined score over iterations.
+    Simple plot showing only the best combined score over iterations FOR DRAGONFLY.
     UPDATED: Better annotations and styling.
     """
     if 'best_combined_score' not in history or not history['best_combined_score']:
