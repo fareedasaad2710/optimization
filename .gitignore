@@ -21,7 +21,6 @@ wheels/
 *.egg
 
 # IDE
-.vscode/
 .idea/
 *.swp
 *.swo
@@ -36,3 +35,7 @@ Thumbs.db
 
 # Large PDF files (excluded to speed up git operations)
 *.pdf
+branch_structure.json
+temp_auto_push.bat
+temp_interactive_push.bat
+.gitignore

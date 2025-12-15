@@ -1,15 +1,4 @@
 
-# ============================================================================
-# GENETIC ALGORITHM IMPLEMENTATION - SELF-CONTAINED (FEASIBILITY-BASED)
-# ============================================================================
-# This file contains the COMPLETE Genetic Algorithm implementation
-# No external GA.py dependency - everything is included here
-# 
-# IMPORTANT: Uses FEASIBILITY-BASED approach (like Dragonfly/Ant Colony)
-# - NO PENALTIES - solutions are either feasible or REJECTED
-# - Only accepts solutions that satisfy ALL constraints
-# ============================================================================
-
 import math
 import random
 import copy
@@ -77,7 +66,7 @@ def convert_cells_to_objects(all_cells):
 
 
 # ============================================================================
-# DARP PARTITIONING (from Dragonfly.py)
+# DARP PARTITIONING 
 # ============================================================================
 
 def darp_partition(
@@ -120,7 +109,7 @@ def darp_partition(
 
 
 # ============================================================================
-# SPANNING TREE PATH CONSTRUCTION (from ant3.py)
+# SPANNING TREE PATH CONSTRUCTION 
 # ============================================================================
 
 def build_spanning_tree_path(start_cell_idx, assigned_cells, all_cells, free_cells, obstacles, grid_width, grid_height):
@@ -214,7 +203,7 @@ def build_spanning_tree_path(start_cell_idx, assigned_cells, all_cells, free_cel
                 cleaned_path.append(path[i])
         path = cleaned_path
     
-    # Handle disconnected cells (like ant3.py does)
+    # Handle disconnected cells 
     # Find continuous path to each disconnected cell using greedy navigation
     missing = set(assigned_cells) - set(parent.keys())
     if missing:
@@ -427,7 +416,6 @@ class RobotCoverageSolution:
         """
         Calculate fitness score: J = w1(1 - coverage) + w2(imbalance)
         
-        ⚠️  IMPORTANT: NO PENALTIES - infeasible solutions are REJECTED before evaluation
         """
         # Convert paths to dict format if needed
         if isinstance(self.paths, dict):
@@ -526,7 +514,6 @@ def generate_random_solution(all_cells, free_cells, obstacles, grid_width, grid_
     """
     Generate a random FEASIBLE solution using DARP + UF-STC + Greedy Coverage Completion.
     
-    ⚠️  CRITICAL: Uses DARP partitioning + spanning tree path construction + greedy fill
     """
     for attempt in range(max_attempts):
         total_cells = len(all_cells)
@@ -610,9 +597,7 @@ def generate_random_solution(all_cells, free_cells, obstacles, grid_width, grid_
 
 def initialize_population(population_size, all_cells, free_cells, obstacles, grid_width, grid_height, num_robots):
     """
-    Initialize population with ONLY FEASIBLE solutions.
-    
-    ⚠️  Each solution is verified to satisfy ALL constraints
+
     """
     population = []
     attempts = 0
@@ -801,7 +786,6 @@ def apply_crossover(parent1, parent2, verbose=False, free_cells=None, all_cells=
     """
     Apply crossover operator - only returns FEASIBLE offspring.
     
-    ⚠️  Retries until feasible child is created or max attempts reached
     """
     for attempt in range(max_attempts):
         child = crossover_order_based(parent1, parent2, verbose=verbose, free_cells=free_cells)
@@ -852,7 +836,6 @@ def mutate_robot_path(solution, robot_id):
     if len(path) <= 2:
         return False
     
-    # Simple mutation: 50% swap, 50% reverse
     if random.random() < 0.5:
         # Swap two random positions
         pos1 = random.randint(0, len(path) - 1)
@@ -878,11 +861,7 @@ def mutate_robot_path(solution, robot_id):
 
 
 def mutate(solution, mutation_rate=0.1, all_cells=None, obstacles=None, grid_width=None, grid_height=None, free_cells=None, max_attempts=20):
-    """
-    Simple mutation - just mutate robot paths.
-    
-    ⚠️  Retries until feasible mutation or returns original
-    """
+
     if random.random() > mutation_rate:
         return solution
     
@@ -911,12 +890,11 @@ def mutate(solution, mutation_rate=0.1, all_cells=None, obstacles=None, grid_wid
                 
                 if is_feasible:
                     mutated.evaluate()
-                    return mutated  # ✅ Found feasible mutation
+                    return mutated 
             else:
                 mutated.evaluate()
                 return mutated
     
-    # If no feasible mutation found, return original
     return solution
 
 
@@ -925,10 +903,7 @@ def mutate(solution, mutation_rate=0.1, all_cells=None, obstacles=None, grid_wid
 # ============================================================================
 
 def calculate_population_diversity(population):
-    """
-    Calculate population diversity based on solution differences.
-    Returns value between 0 (all identical) and 1 (maximum diversity).
-    """
+
     if len(population) < 2:
         return 0.0
     
