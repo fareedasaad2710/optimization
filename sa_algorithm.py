@@ -31,6 +31,7 @@ import math
 import random
 import copy
 import collections
+import time
 from collections import deque
 from typing import List, Dict, Tuple, Optional
 from datetime import datetime
@@ -550,9 +551,13 @@ class RobotCoverageSolution:
         
         # ✅ NO PENALTY TERM - only feasible solutions reach this point
         
-        # Set weights
-        w1 = 0.7  # 70% coverage
-        w2 = 0.3  # 30% balance
+        # Set weights (can be overridden by set_weights method)
+        if not hasattr(self, 'w1'):
+            self.w1 = 0.7  # 70% coverage
+            self.w2 = 0.3  # 30% balance
+        
+        w1 = self.w1
+        w2 = self.w2
         
         # If perfect coverage, care more about balance
         if coverage_ratio >= 1.0:
@@ -562,6 +567,11 @@ class RobotCoverageSolution:
         # Calculate final score (lower = better) - NO PENALTIES
         self.combined_score = w1 * coverage_term + w2 * imbalance_term
         return self.combined_score
+    def set_weights(self, w1, w2):
+        """Set custom weights for objective function"""
+        self.w1 = w1
+        self.w2 = w2
+    
     #store best solutiojn for now
     def copy(self):
         """
@@ -569,10 +579,18 @@ class RobotCoverageSolution:
         - Creates an exact copy of this solution
         - Needed because we don't want to accidentally change the original
         """
-        return RobotCoverageSolution(
+        new_solution = RobotCoverageSolution(
             self.assignment, self.paths, self.all_cells, 
             self.free_cells, self.obstacles, self.grid_width, self.grid_height
         )
+        # Copy custom weights if they exist
+        if hasattr(self, 'w1'):
+            new_solution.w1 = self.w1
+            new_solution.w2 = self.w2
+        # Copy fitness and score
+        new_solution.fitness = copy.deepcopy(self.fitness) if self.fitness else None
+        new_solution.combined_score = self.combined_score
+        return new_solution
 
 def build_continuous_path_simple(assigned_cells, all_cells, free_cells, obstacles, grid_width, grid_height):
     """
@@ -834,7 +852,8 @@ def generate_neighbor_solution(current_solution, all_cells, obstacles, grid_widt
     return current_solution
 
 def simulated_annealing(all_cells, free_cells, obstacles, grid_width, grid_height, num_robots,
-                       initial_temp=1000, cooling_rate=0.95, max_iterations=1000):
+                       initial_temp=1000, cooling_rate=0.95, max_iterations=1000,
+                       initial_solution=None, custom_weights=None):
     """
     Simulated Annealing algorithm (SIMPLE & CLEAN)
     Returns: (best_solution, convergence_history)
@@ -857,12 +876,18 @@ def simulated_annealing(all_cells, free_cells, obstacles, grid_width, grid_heigh
     print(f"   • Obstacles: {len(obstacles)}")
     print(f"{'='*70}\n")
     
-    # Step 1: Generate random starting solution
-    print(f"🔄 STEP 1: Generating Initial Random Solution...")
-    current_solution = generate_random_solution(
-        all_cells, free_cells, obstacles, grid_width, grid_height, num_robots
-    )
-    current_solution.evaluate()
+    # Step 1: Generate random starting solution (or use provided one)
+    if initial_solution is not None:
+        print(f"🔄 STEP 1: Using Provided Initial Solution...")
+        current_solution = initial_solution
+    else:
+        print(f"🔄 STEP 1: Generating Initial Random Solution...")
+        current_solution = generate_random_solution(
+            all_cells, free_cells, obstacles, grid_width, grid_height, num_robots
+        )
+        if custom_weights:
+            current_solution.set_weights(custom_weights[0], custom_weights[1])
+        current_solution.evaluate()
     
     # Keep track of the best solution found so far
     best_solution = current_solution.copy()
@@ -924,6 +949,9 @@ def simulated_annealing(all_cells, free_cells, obstacles, grid_width, grid_heigh
             all_cells, obstacles, grid_width, grid_height,
             verbose=verbose_iteration
         )
+        # Apply custom weights to neighbor if specified
+        if custom_weights:
+            neighbor.set_weights(custom_weights[0], custom_weights[1])
         neighbor.evaluate()
         
         # Step 3: Calculate if neighbor is better or worse
@@ -1336,6 +1364,131 @@ def run_sa_case_study_3():
 # MAIN EXECUTION
 # ============================================================================
 
+def run_sa_multiple_times(num_runs=10):
+    """
+    Run SA Case Study 2 multiple times with randomized parameters for KPI comparison.
+    Returns list of results for statistical analysis.
+    """
+    import statistics
+    
+    results = []
+    
+    print(f"\n{'='*80}")
+    print(f"🔄 RUNNING SA {num_runs} TIMES FOR KPI COMPARISON")
+    print(f"{'='*80}\n")
+    
+    for run in range(num_runs):
+        print(f"\n{'🔥'*40}")
+        print(f"📊 RUN {run+1}/{num_runs}")
+        print(f"{'🔥'*40}\n")
+        
+        # Add randomness: vary temperature ±20%, cooling rate ±2%
+        base_temp = 1000
+        base_cooling = 0.95
+        
+        temp_variation = random.uniform(0.8, 1.2)  # ±20%
+        cooling_variation = random.uniform(0.98, 1.02)  # ±2%
+        
+        initial_temp = int(base_temp * temp_variation)
+        cooling_rate = base_cooling * cooling_variation
+        
+        # Also randomize weights (most important for different results!)
+        # w1 (coverage): 0.5-0.8, w2 (balance): 0.2-0.5
+        w1_variation = random.uniform(0.5, 0.8)
+        w2_variation = 1.0 - w1_variation  # They must sum to 1
+        
+        print(f"🎲 Randomized Parameters for Run {run+1}:")
+        print(f"   • Initial Temp: {initial_temp} (base: {base_temp})")
+        print(f"   • Cooling Rate: {cooling_rate:.4f} (base: {base_cooling})")
+        print(f"   • Weights: w1={w1_variation:.3f}, w2={w2_variation:.3f}")
+        
+        # Run SA with randomized parameters
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        grid_width, grid_height = 6, 6
+        obstacles = [1, 7, 13, 19, 25, 31]  # 6 obstacles
+        all_cells = create_grid_cells(grid_width, grid_height)
+        free_cells = [i for i in range(len(all_cells)) if i not in obstacles]
+        num_robots = 3
+        
+        start_time = time.time()
+        
+        # Generate initial solution with custom weights
+        initial_sol = generate_random_solution(
+            all_cells, free_cells, obstacles, grid_width, grid_height, num_robots
+        )
+        initial_sol.set_weights(w1_variation, w2_variation)
+        initial_sol.evaluate()
+        
+        best_solution, convergence = simulated_annealing(
+            all_cells, free_cells, obstacles, grid_width, grid_height, num_robots,
+            initial_temp=initial_temp,
+            cooling_rate=cooling_rate,
+            max_iterations=500,
+            initial_solution=initial_sol,
+            custom_weights=(w1_variation, w2_variation)
+        )
+        runtime = time.time() - start_time
+        
+        # Save results
+        result = {
+            'run': run + 1,
+            'best_score': best_solution.combined_score,
+            'coverage': best_solution.fitness['coverage_score'],
+            'total_cells': len(free_cells),
+            'balance': best_solution.fitness['balance_score'],
+            'runtime': runtime,
+            'initial_temp': initial_temp,
+            'cooling_rate': cooling_rate,
+            'w1': w1_variation,
+            'w2': w2_variation,
+            'solution': best_solution,
+            'convergence': convergence
+        }
+        results.append(result)
+        
+        print(f"\n✅ Run {run+1} Complete!")
+        print(f"   Best Score: {result['best_score']:.4f}")
+        print(f"   Coverage: {result['coverage']}/{result['total_cells']}")
+        print(f"   Balance: {result['balance']:.4f}")
+        print(f"   Runtime: {result['runtime']:.2f}s\n")
+    
+    # Print summary statistics
+    print(f"\n{'='*80}")
+    print(f"📊 SUMMARY STATISTICS ({num_runs} runs)")
+    print(f"{'='*80}")
+    
+    scores = [r['best_score'] for r in results]
+    
+    print(f"\n🎯 Best Combined Score:")
+    print(f"   • Best:    {min(scores):.4f}")
+    print(f"   • Worst:   {max(scores):.4f}")
+    print(f"   • Mean:    {statistics.mean(scores):.4f}")
+    print(f"   • Median:  {statistics.median(scores):.4f}")
+    print(f"   • Std Dev: {statistics.stdev(scores):.4f}")
+    
+    balances = [r['balance'] for r in results]
+    print(f"\n⚖️  Workload Balance:")
+    print(f"   • Best:    {min(balances):.4f}")
+    print(f"   • Worst:   {max(balances):.4f}")
+    print(f"   • Mean:    {statistics.mean(balances):.4f}")
+    
+    runtimes = [r['runtime'] for r in results]
+    print(f"\n⏱️  Runtime:")
+    print(f"   • Mean:    {statistics.mean(runtimes):.2f}s")
+    print(f"   • Total:   {sum(runtimes):.2f}s")
+    
+    print(f"\n📋 Individual Run Results:")
+    print(f"{'Run':<6} {'Score':<10} {'Coverage':<12} {'Balance':<10} {'Weights':<15} {'Runtime':<10}")
+    print(f"{'-'*75}")
+    for r in results:
+        w_str = f"{r['w1']:.2f}/{r['w2']:.2f}"
+        cov_str = f"{r['coverage']}/{r['total_cells']}"
+        print(f"{r['run']:<6} {r['best_score']:<10.4f} {cov_str:<12} {r['balance']:<10.4f} {w_str:<15} {r['runtime']:<10.2f}s")
+    
+    return results
+
+
 if __name__ == "__main__":
     print("\n" + "="*80)
     print("SIMULATED ANNEALING - MULTI-ROBOT COVERAGE PATH PLANNING")
@@ -1346,8 +1499,9 @@ if __name__ == "__main__":
     print("  2. Case Study 2: 6x8 grid, 3 robots")
     print("  3. Case Study 3: 10x10 grid, 5 robots")
     print("  4. Run all case studies")
+    print("  5. 🎯 Case Study 2: Run 10 times for KPI comparison")
     
-    choice = input("\nEnter your choice (1-4): ").strip()
+    choice = input("\nEnter your choice (1-5): ").strip()
     
     if choice == "1":
         run_sa_case_study_1()
@@ -1360,5 +1514,8 @@ if __name__ == "__main__":
         run_sa_case_study_1()
         run_sa_case_study_2()
         run_sa_case_study_3()
+    elif choice == "5":
+        print("\n🚀 Running SA 10 times for KPI comparison...\n")
+        results = run_sa_multiple_times(num_runs=10)
     else:
-        print("❌ Invalid choice. Please run again and select 1-4.")
+        print("❌ Invalid choice. Please run again and select 1-5.")
